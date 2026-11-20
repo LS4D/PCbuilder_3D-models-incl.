@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Smart PC Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef1f5;--panel:#fff;--ink:#101827;--muted:#5a6578;--line:#dbe1ea;--accent:#0f766e;--accent-ink:#fff;--soft:#e6f3f1;--ok:#0f766e;--warn:#b42318;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1118;--panel:#131c26;--ink:#e8eef6;--muted:#97a4b8;--line:#25323f;--accent:#2dd4bf;--accent-ink:#04201c;--soft:#10302d;--ok:#5eead4;--warn:#ff9b8a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0b1118;--panel:#131c26;--ink:#e8eef6;--muted:#97a4b8;--line:#25323f;--accent:#2dd4bf;--accent-ink:#04201c;--soft:#10302d;--ok:#5eead4;--warn:#ff9b8a;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
+main{max-width:1040px;margin:0 auto;padding:28px 16px 64px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:28px}
+.brand{display:flex;align-items:center;gap:12px;font-weight:600;font-size:1.15rem}
+.logo{width:36px;height:36px;border-radius:9px;background:var(--accent);display:grid;place-items:center}
+.logo svg{width:20px;height:20px;stroke:var(--accent-ink);fill:none;stroke-width:2}
+.lang{font:inherit;font-size:.9rem;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);cursor:pointer}
+h1{font-size:clamp(1.9rem,5vw,2.9rem);line-height:1.1;margin:0 0 10px;font-weight:600;letter-spacing:-.02em;max-width:18ch}
+.sub{color:var(--muted);margin:0 0 30px;max-width:56ch;font-size:1.05rem}
+.layout{display:grid;gap:20px;align-items:start}
+@media (min-width:860px){.layout{grid-template-columns:330px 1fr}.ctl{position:sticky;top:20px}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px}
+label,legend{font-weight:500;display:block;margin-bottom:8px;font-size:.95rem}
+input[type=number]{width:100%;font:inherit;padding:11px 13px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink)}
+fieldset{border:0;padding:0;margin:20px 0 0}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:8px;cursor:pointer;font-weight:400;font-size:.95rem}
+.opt:has(input:checked){border-color:var(--accent);background:var(--soft)}
+.opt input{margin-top:4px;accent-color:var(--accent)}
+button{font:inherit;font-weight:600;padding:12px 18px;border-radius:9px;border:0;background:var(--accent);color:var(--accent-ink);cursor:pointer;width:100%}
+button:hover{filter:brightness(1.07)}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);width:auto}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.err{color:var(--warn);margin:8px 0 10px;min-height:1.4em;font-size:.92rem}
+.err:not(:empty){background:rgba(255,122,122,.12);border:1px solid var(--warn);border-radius:10px;padding:10px 12px;font-size:.95rem;font-weight:500}
+#result[hidden]{display:none}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.pill{display:inline-block;background:var(--soft);color:var(--ok);font-weight:600;font-size:.85rem;padding:4px 11px;border-radius:99px}
+.big{font:500 clamp(1.9rem,6vw,2.6rem)/1 "IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.lbl{color:var(--muted);font-size:.88rem;margin-bottom:6px}
+.meter{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin:4px 0 8px}
+.meter i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.meter.over i{background:var(--warn)}
+table{width:100%;border-collapse:collapse;margin-top:14px}
+td{padding:12px 4px;border-top:1px solid var(--line);vertical-align:top}
+td:first-child{color:var(--muted);width:30%;font-size:.92rem}
+td.name{font-weight:500}
+td:last-child{text-align:right;white-space:nowrap;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.95rem}
+.status{margin:12px 0 4px;font-weight:500}
+.status.ok{color:var(--ok)}.status.bad{color:var(--warn)}
+.note{color:var(--muted);font-size:.88rem;margin:10px 0 0}
+.actions{margin-top:16px}
+.tabs{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}.tabs button{width:auto;padding:7px 14px;background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:500}.tabs button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+td a{color:var(--accent);text-decoration:none;font-weight:600;margin-left:4px}
+[hidden]{display:none!important}
+.pcard{width:auto;text-align:left;background:var(--bg);color:var(--ink);border:1px solid var(--line);display:flex;flex-direction:column;padding:10px 12px;font-weight:400}.pcard[aria-pressed=true]{border-color:var(--accent);background:var(--soft)}.pl{color:var(--muted);font-size:.8rem}.pn{font-weight:500;font-size:.9rem}
+.view3d{position:relative;height:clamp(260px,42vw,380px);border:1px solid var(--line);border-radius:12px;background:radial-gradient(circle at 50% 35%,var(--soft),var(--bg));margin:0 0 16px;overflow:hidden}.view3d canvas{width:100%;height:100%;display:block;cursor:grab;touch-action:pan-y}.glb-tools{position:absolute;right:10px;top:10px;z-index:5;display:flex;gap:6px;align-items:center;max-width:calc(100% - 20px)}.glb-tools button{width:auto;padding:7px 10px;font-size:.76rem;border-radius:8px;box-shadow:none}.glb-tools button.ghost{background:rgba(12,14,22,.88);border:1px solid var(--line);color:var(--ink)}.glb-tools input{display:none}.glb-status{position:absolute;top:48px;right:10px;z-index:5;max-width:70%;padding:5px 8px;border-radius:7px;background:rgba(8,10,16,.82);color:#d8dcef;font-size:.72rem;pointer-events:none}.v3h{position:absolute;left:12px;bottom:8px;font-size:.78rem;color:var(--muted);pointer-events:none}.sels{display:flex;gap:8px}
+.ofilt{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}.ofilt input,.ofilt select{font:inherit;font-size:.9rem;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink)}.ofilt input[type=search]{flex:1 1 180px}.ofilt input[type=number]{width:120px}.ofilt .chk{display:flex;align-items:center;gap:6px;font-size:.9rem;margin:0;font-weight:400}
+.olist{margin-bottom:20px}.orow{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:10px 4px;border-top:1px solid var(--line)}.orow.sel{background:var(--soft)}.orow .nm{font-weight:500}.orow.bad .nm{color:var(--muted)}.tg{color:var(--muted);font-size:.82rem}.ra{display:flex;align-items:center;gap:12px}.pr{font-family:"IBM Plex Mono",monospace;font-size:.92rem}.orow button{width:auto;padding:7px 14px;font-size:.9rem}.orow button[aria-pressed=true]{background:transparent;color:var(--ok);border:1px solid var(--ok)}
+.modes{margin-bottom:20px}.ownh{font-size:1.2rem;margin:0 0 16px;font-weight:600}
+.ogrid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-bottom:18px}
+.osel{width:100%;font:inherit;font-size:.95rem;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink)}
+.warns{list-style:none;padding:0;margin:0 0 18px}.warns li{padding:10px 12px;border-radius:9px;background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--warn);margin-bottom:6px;font-size:.92rem}.warns li.good{background:var(--soft);color:var(--ok)}
+@media (max-width:520px){tr{display:grid;grid-template-columns:1fr auto;border-top:1px solid var(--line)}td{border:0;padding:8px 2px}td:first-child{grid-column:1/3;width:auto;padding-bottom:0}}
+:root,:root:not([data-theme="light"]),:root[data-theme="dark"]{--bg:#07080c;--panel:#0f1117;--ink:#eceff7;--muted:#8a92a8;--line:#222636;--accent:#7c5cff;--accent-ink:#fff;--soft:rgba(124,92,255,.13);--ok:#4ade80;--warn:#ff7a7a;color-scheme:dark}
+body{font-family:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;background:radial-gradient(900px 520px at 85% -8%,rgba(124,92,255,.22),transparent 60%),radial-gradient(700px 420px at 0% 10%,rgba(34,211,238,.09),transparent 60%),var(--bg);background-attachment:fixed}
+main{max-width:1280px}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;margin:-28px -16px 28px;padding:14px 16px;background:rgba(7,8,12,.72);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.logo{background:linear-gradient(135deg,#7c5cff,#22d3ee);border-radius:10px;box-shadow:0 0 24px rgba(124,92,255,.5)}.logo svg{stroke:#fff}
+h1{background:linear-gradient(180deg,#fff,#aeb6ff);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700;letter-spacing:-.03em;max-width:20ch;font-size:clamp(2rem,5vw,3.3rem)}
+.panel,.oleft,.oright{background:linear-gradient(180deg,rgba(255,255,255,.03),transparent 40%),var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.4)}
+button{background:linear-gradient(135deg,#7c5cff,#5b8cff);color:#fff;border-radius:12px;box-shadow:0 8px 24px rgba(124,92,255,.35)}
+button.ghost{background:transparent;color:var(--ink);box-shadow:none}
+.lang,input[type=number],.osel,.ofilt input,.ofilt select,.opt{background:#0a0c12;border-color:var(--line);border-radius:12px}
+.opt:has(input:checked){border-color:var(--accent);background:var(--soft);box-shadow:0 0 0 3px rgba(124,92,255,.15)}
+.tabs button{border-radius:99px;box-shadow:none;background:transparent;color:var(--ink)}.tabs button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+.modes{display:inline-flex;gap:4px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:14px}.modes button{border:0;border-radius:10px;padding:9px 18px;color:var(--muted)}.modes button[aria-pressed=true]{background:linear-gradient(135deg,#7c5cff,#5b8cff);color:#fff;box-shadow:0 6px 20px rgba(124,92,255,.4)}
+.pill{background:var(--soft);color:#c4b8ff}
+.big{font-family:"JetBrains Mono",ui-monospace,monospace;background:linear-gradient(90deg,#fff,#b9a8ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+td:last-child,.pr{font-family:"JetBrains Mono",ui-monospace,monospace}
+.meter i{background:linear-gradient(90deg,#7c5cff,#22d3ee)}.meter.over i{background:var(--warn)}
+.view3d{background:radial-gradient(ellipse at 50% 30%,rgba(124,92,255,.28),rgba(7,8,12,.2) 60%),#090a10;border-radius:16px;box-shadow:inset 0 0 60px rgba(124,92,255,.08)}
+.pcard{border-radius:12px;background:#0a0c12;min-width:0;box-shadow:none}.pn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.pcard[aria-pressed=true]{border-color:var(--accent);background:var(--soft);box-shadow:0 0 0 3px rgba(124,92,255,.18)}
+.ogrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.orow{border-radius:12px;padding:10px 12px;border:1px solid transparent;border-top-color:var(--line)}.orow:hover{background:rgba(255,255,255,.03)}.orow.sel{border-color:var(--accent);background:var(--soft)}
+.olist{max-height:560px;overflow:auto;margin-bottom:0}.warns li{border-radius:12px}
+#v-own{display:grid;gap:20px;background:none;border:0;box-shadow:none;padding:0}.ownh{margin:0}.oleft,.oright{padding:18px;min-width:0}
+#v-own .view3d{height:clamp(300px,50vh,520px)}
+@media (min-width:1000px){#v-own{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}.ownh{grid-column:1/-1}.oleft{position:sticky;top:84px;align-self:start}}
+.rgbc{position:absolute;top:10px;right:10px;display:flex;gap:6px;align-items:center;background:rgba(10,12,18,.65);backdrop-filter:blur(8px);padding:6px 9px;border:1px solid var(--line);border-radius:99px;z-index:2}.rgbc button{width:20px;height:20px;padding:0;border-radius:50%;border:2px solid rgba(255,255,255,.25);box-shadow:none}.rgbc button[aria-pressed=true]{border-color:#fff;transform:scale(1.18)}.rgbc input{width:24px;height:24px;border:0;padding:0;background:none;cursor:pointer}
+.view3d.light{background:radial-gradient(ellipse at 50% 30%,#fff,#c9cfda 75%)}.view3d.light .v3h{color:#4a5568}
+</style>
+</head>
+<body>
+<main>
+<div class="top"><div class="brand"><span class="logo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4"/></svg></span>Smart PC Builder</div><span class="sels"><select id="ctry" class="lang"></select><select id="lang" class="lang"></select></span></div>
+<h1 data-i18n="h1"></h1>
+<p class="sub" data-i18n="sub"></p>
+<nav class="tabs modes" id="modes"></nav>
+<div id="v-own" class="panel" hidden>
+  <h2 class="ownh" data-i18n="ownh"></h2>
+  <div class="view3d" id="v3o"></div>
+  <div class="ogrid" id="ogrid"></div>
+  <div class="ofilt" id="ofilt"></div>
+  <div class="olist" id="olist" aria-live="polite"></div>
+  <div class="load" id="oload"></div>
+  <ul class="warns" id="owarn"></ul>
+  <div class="lbl" data-i18n="total"></div><div class="big" id="ototal"></div>
+  <p class="note" data-i18n="compat"></p>
+  <p class="note" data-i18n="excl"></p>
+  <p class="note" data-i18n="note"></p>
+  <div class="actions"><button id="ocopy" class="ghost" type="button" data-i18n="copy"></button></div>
+  <p class="note" id="ocopied" role="status"></p>
+</div>
+<div class="layout" id="v-adv">
+<form class="panel ctl" id="form" novalidate>
+  <label for="budget" data-i18n="budget"></label>
+  <input id="budget" type="number" inputmode="decimal" step="any">
+  <fieldset>
+    <legend data-i18n="goal"></legend>
+    <label class="opt"><input type="radio" name="goal" value="1" checked><span data-i18n="g1"></span></label>
+    <label class="opt"><input type="radio" name="goal" value="2"><span data-i18n="g2"></span></label>
+    <label class="opt"><input type="radio" name="goal" value="3"><span data-i18n="g3"></span></label>
+  </fieldset>
+  <fieldset>
+    <legend data-i18n="res"></legend>
+    <label class="opt"><input type="radio" name="res" value="1" checked><span>1080p</span></label>
+    <label class="opt"><input type="radio" name="res" value="2"><span>1440p</span></label>
+    <label class="opt"><input type="radio" name="res" value="3"><span>4K</span></label>
+  </fieldset>
+  <p class="err" id="err" role="alert"></p>
+  <button id="go" type="submit" data-i18n="go"></button>
+</form>
+<section id="result" class="panel" hidden aria-live="polite">
+  <div class="head"><div><div class="lbl" data-i18n="total"></div><div class="big" id="total"></div></div><span class="pill" id="cat"></span></div>
+  <div class="view3d" id="v3a"></div>
+  <div class="tabs" id="tabs" role="group"></div>
+  <div class="meter" id="meter"><i id="bar"></i></div>
+  <p class="status" id="status"></p>
+  <table id="parts"></table>
+  <p class="note" id="why"></p>
+  <p class="note" id="up"></p>
+  <p class="note" data-i18n="compat"></p>
+  <p class="note" data-i18n="excl"></p>
+  <p class="note" data-i18n="note"></p>
+  <div class="actions"><button id="copy" class="ghost" type="button" data-i18n="copy"></button></div>
+  <p class="note" id="copied" role="status"></p>
+</section>
+</div>
+</main>
+<script>
+var LOC = {nl:"nl-NL", en:"en-GB", de:"de-DE", fr:"fr-FR"};
+var L = {
+nl:{name:"Nederlands",fl:{brand:"Merk",color:"Kleur",sock:"Socket",mem:"Geheugen",ff:"Formaat",cap:"Capaciteit",w:"Vermogen",type:"Type",vram:"VRAM",q:"Zoek op naam…",max:"Max. prijs (€)",lo:"Prijs: laag naar hoog",hi:"Prijs: hoog naar laag",ok:"Alleen compatibel",none:"Geen onderdelen gevonden met deze filters.",pick:"Kies",sel:"Gekozen",n:"{n} onderdelen"},tabAdv:"Advies",tabOwn:"Zelf samenstellen",ownh:"Kies je eigen onderdelen",okc:"Alle gecontroleerde onderdelen zijn compatibel.",w:["CPU-socket {a} past niet op het moederbord ({b}).","Het moederbord ondersteunt {b}, maar het geheugen is {a}.","Het ATX-moederbord past niet in een mATX-behuizing.","De koeler heeft ruimte voor een radiator van {a}mm nodig, de behuizing biedt {b}mm.","De voeding ({a}W) is krap, aanbevolen is minstens {b}W.","Deze CPU wordt zonder koeler geleverd, kies een CPU-koeler.","De videokaart (ca. {a}mm) is langer dan de behuizing toelaat ({b}mm).","De koeler ({a}mm) is hoger dan de behuizing toelaat ({b}mm)."],res:"Schermresolutie",vbest:"Beste keuze",buy:"Zoek prijs",stale:"De catalogus is ouder dan 30 dagen, controleer de prijzen.",why:["Casual: CPU en GPU wegen even zwaar mee.","High-FPS: GPU weegt 65% mee, CPU 35%.","Quality: GPU weegt 75% mee, met minimaal 12GB VRAM, 32GB RAM en een sterke CPU."],rw:["1080p: geen extra eisen aan de videokaart.","1440p: videokaart van minstens middenklasse.","4K: topklasse videokaart met 12GB+ VRAM en 32GB RAM."],h1:"Stel je ideale gaming-pc samen",sub:"Vul je budget en doel in en krijg een compatibele onderdelenlijst.",budget:"Totaal budget (€)",ph:"bijv. 1200",goal:"Hoofddoel van deze pc",g1:"Casual, allround en eSports",g2:"Performance en high-FPS gaming",g3:"Quality: 4K of zware workloads",go:"Toon advies",total:"Geschatte totaalprijs",note:"Prijzen zijn schattingen uit de catalogus van {date}, geen live prijzen. Voor andere landen zijn ze omgerekend vanaf Belgische prijzen met ECB-wisselkoersen van 14 juli 2026 en de lokale btw (VS en Canada zonder verkoopbelasting), dus winkelprijzen kunnen afwijken.",copy:"Kopieer advies",copied:"Advies gekopieerd.",copyFail:"Kopiëren lukt niet. Selecteer de lijst hierboven en kopieer handmatig.",errNum:"Voer een geldig getal in, bijvoorbeeld 850 of 1200,50.",errMin:"Voor dit doel is minimaal {m} nodig voor een complete build uit de catalogus.",over:"Let op: deze build valt {d} boven je budget van {b}.",left:"Je houdt nog {d} over van je budget van {b}.",parts:["Processor (CPU)","CPU-koeling","Moederbord","Werkgeheugen (RAM)","Grafische kaart (GPU)","Opslag (SSD)","Voeding","Behuizing"],stock:"Stock CPU-koeler (meegeleverd)",up:"Met {d} extra budget kun je upgraden naar: {n}.",max:"Je budget is hoger dan de topklasse van de catalogus. Het restbedrag kun je kwijt aan een monitor of randapparatuur.",compat:"Gecontroleerd op socket, geheugentype, moederbordformaat, radiatorruimte in de behuizing en vermogen van de voeding. Lengte van de videokaart en hoogte van de koeler zijn niet gecontroleerd.",excl:"Niet inbegrepen: monitor, Windows-licentie, toetsenbord en muis.",head:"PC-build advies",bud:"Budget",cat:"Categorie",tot:"Totaalprijs",lang:"Taal"},
+en:{name:"English",fl:{brand:"Brand",color:"Color",sock:"Socket",mem:"Memory",ff:"Size",cap:"Capacity",w:"Wattage",type:"Type",vram:"VRAM",q:"Search by name…",max:"Max price (€)",lo:"Price: low to high",hi:"Price: high to low",ok:"Compatible only",none:"No parts match these filters.",pick:"Select",sel:"Selected",n:"{n} parts"},tabAdv:"Advisor",tabOwn:"Build your own",ownh:"Choose your own parts",okc:"All checked parts are compatible.",w:["CPU socket {a} does not fit the motherboard ({b}).","The motherboard supports {b}, but the memory is {a}.","An ATX motherboard does not fit in an mATX case.","The cooler needs room for a {a}mm radiator, the case offers {b}mm.","The power supply ({a}W) is tight, at least {b}W is recommended.","This CPU ships without a cooler, pick a CPU cooler.","The graphics card (approx. {a}mm) is longer than the case allows ({b}mm).","The cooler ({a}mm) is taller than the case allows ({b}mm)."],res:"Screen resolution",vbest:"Best pick",buy:"Find price",stale:"The catalog is older than 30 days, check the prices.",why:["Casual: CPU and GPU weigh equally.","High-FPS: GPU weighs 65%, CPU 35%.","Quality: GPU weighs 75%, with at least 12GB VRAM, 32GB RAM and a strong CPU."],rw:["1080p: no extra graphics card requirement.","1440p: at least a mid-range graphics card.","4K: high-end graphics card with 12GB+ VRAM and 32GB RAM."],h1:"Build your ideal gaming PC",sub:"Enter your budget and goal to get a compatible parts list.",budget:"Total budget (€)",ph:"e.g. 1200",goal:"Main purpose of this PC",g1:"Casual, all-round and eSports",g2:"Performance and high-FPS gaming",g3:"Quality: 4K or heavy workloads",go:"Show advice",total:"Estimated total price",note:"Prices are estimates from the catalog of {date}, not live prices. For other countries they are converted from Belgian prices using ECB exchange rates of 14 July 2026 and local VAT (US and Canada exclude sales tax), so shop prices can differ.",copy:"Copy advice",copied:"Advice copied.",copyFail:"Copying failed. Select the list above and copy it manually.",errNum:"Enter a valid number, for example 850 or 1200.50.",errMin:"This goal needs at least {m} for a complete build from the catalog.",over:"Note: this build is {d} over your budget of {b}.",left:"You have {d} left from your budget of {b}.",parts:["Processor (CPU)","CPU cooler","Motherboard","Memory (RAM)","Graphics card (GPU)","Storage (SSD)","Power supply","Case"],stock:"Stock CPU cooler (included)",up:"With {d} more budget you could upgrade to: {n}.",max:"Your budget is above the top tier of the catalog. Spend the rest on a monitor or peripherals.",compat:"Checked for socket, memory type, motherboard size, radiator room in the case and power supply wattage. Graphics card length and cooler height are not checked.",excl:"Not included: monitor, Windows license, keyboard and mouse.",head:"PC build advice",bud:"Budget",cat:"Category",tot:"Total price",lang:"Language"},
+de:{name:"Deutsch",fl:{brand:"Marke",color:"Farbe",sock:"Sockel",mem:"Speicher",ff:"Größe",cap:"Kapazität",w:"Leistung",type:"Typ",vram:"VRAM",q:"Nach Name suchen…",max:"Max. Preis (€)",lo:"Preis: aufsteigend",hi:"Preis: absteigend",ok:"Nur kompatible",none:"Keine Teile für diese Filter gefunden.",pick:"Wählen",sel:"Gewählt",n:"{n} Teile"},tabAdv:"Empfehlung",tabOwn:"Selbst zusammenstellen",ownh:"Wähle deine eigenen Teile",okc:"Alle geprüften Teile sind kompatibel.",w:["CPU-Sockel {a} passt nicht aufs Mainboard ({b}).","Das Mainboard unterstützt {b}, der Speicher ist aber {a}.","Ein ATX-Mainboard passt nicht in ein mATX-Gehäuse.","Der Kühler braucht Platz für einen {a}mm-Radiator, das Gehäuse bietet {b}mm.","Das Netzteil ({a}W) ist knapp, empfohlen sind mindestens {b}W.","Diese CPU wird ohne Kühler geliefert, wähle einen CPU-Kühler.","Die Grafikkarte (ca. {a}mm) ist länger, als das Gehäuse erlaubt ({b}mm).","Der Kühler ({a}mm) ist höher, als das Gehäuse erlaubt ({b}mm)."],res:"Bildschirmauflösung",vbest:"Beste Wahl",buy:"Preis suchen",stale:"Der Katalog ist älter als 30 Tage, prüfe die Preise.",why:["Casual: CPU und GPU zählen gleich viel.","High-FPS: GPU zählt 65 %, CPU 35 %.","Quality: GPU zählt 75 %, mit mindestens 12GB VRAM, 32GB RAM und starker CPU."],rw:["1080p: keine zusätzlichen Anforderungen an die Grafikkarte.","1440p: mindestens eine Mittelklasse-Grafikkarte.","4K: High-End-Grafikkarte mit 12GB+ VRAM und 32GB RAM."],h1:"Stelle deinen idealen Gaming-PC zusammen",sub:"Gib dein Budget und Ziel ein und erhalte eine kompatible Teileliste.",budget:"Gesamtbudget (€)",ph:"z. B. 1200",goal:"Hauptzweck dieses PCs",g1:"Casual, Allround und eSports",g2:"Performance und High-FPS-Gaming",g3:"Quality: 4K oder schwere Workloads",go:"Empfehlung anzeigen",total:"Geschätzter Gesamtpreis",note:"Preise sind Schätzungen aus dem Katalog vom {date}, keine Live-Preise. Für andere Länder wurden sie aus belgischen Preisen mit EZB-Wechselkursen vom 14. Juli 2026 und lokaler MwSt. umgerechnet (USA und Kanada ohne Verkaufssteuer), Ladenpreise können abweichen.",copy:"Empfehlung kopieren",copied:"Empfehlung kopiert.",copyFail:"Kopieren fehlgeschlagen. Markiere die Liste oben und kopiere sie manuell.",errNum:"Gib eine gültige Zahl ein, zum Beispiel 850 oder 1200,50.",errMin:"Für dieses Ziel sind mindestens {m} für einen kompletten Build aus dem Katalog nötig.",over:"Achtung: Dieser Build liegt {d} über deinem Budget von {b}.",left:"Du behältst {d} von deinem Budget von {b} übrig.",parts:["Prozessor (CPU)","CPU-Kühler","Mainboard","Arbeitsspeicher (RAM)","Grafikkarte (GPU)","Speicher (SSD)","Netzteil","Gehäuse"],stock:"Boxed-CPU-Kühler (im Lieferumfang)",up:"Mit {d} mehr Budget könntest du upgraden auf: {n}.",max:"Dein Budget liegt über der Spitzenklasse des Katalogs. Den Rest kannst du in Monitor oder Zubehör stecken.",compat:"Geprüft auf Sockel, Speichertyp, Mainboard-Format, Radiatorplatz im Gehäuse und Netzteilleistung. Grafikkartenlänge und Kühlerhöhe werden nicht geprüft.",excl:"Nicht enthalten: Monitor, Windows-Lizenz, Tastatur und Maus.",head:"PC-Build-Empfehlung",bud:"Budget",cat:"Kategorie",tot:"Gesamtpreis",lang:"Sprache"},
+fr:{name:"Français",fl:{brand:"Marque",color:"Couleur",sock:"Socket",mem:"Mémoire",ff:"Format",cap:"Capacité",w:"Puissance",type:"Type",vram:"VRAM",q:"Rechercher par nom…",max:"Prix max (€)",lo:"Prix croissant",hi:"Prix décroissant",ok:"Compatibles uniquement",none:"Aucune pièce ne correspond à ces filtres.",pick:"Choisir",sel:"Choisi",n:"{n} pièces"},tabAdv:"Conseil",tabOwn:"Composer soi-même",ownh:"Choisis tes propres pièces",okc:"Toutes les pièces vérifiées sont compatibles.",w:["Le socket CPU {a} ne correspond pas à la carte mère ({b}).","La carte mère prend en charge {b}, mais la mémoire est {a}.","Une carte mère ATX ne rentre pas dans un boîtier mATX.","Le refroidisseur demande la place d’un radiateur de {a} mm, le boîtier offre {b} mm.","L’alimentation ({a} W) est juste, au moins {b} W sont recommandés.","Ce CPU est livré sans ventirad, choisis un refroidisseur CPU.","La carte graphique (env. {a} mm) est plus longue que ce que permet le boîtier ({b} mm).","Le refroidisseur ({a} mm) est plus haut que ce que permet le boîtier ({b} mm)."],res:"Résolution d’écran",vbest:"Meilleur choix",buy:"Chercher le prix",stale:"Le catalogue date de plus de 30 jours, vérifie les prix.",why:["Casual : CPU et GPU comptent autant.","Haute fréquence : GPU 65 %, CPU 35 %.","Quality : GPU 75 %, avec au moins 12 Go de VRAM, 32 Go de RAM et un CPU solide."],rw:["1080p : aucune exigence supplémentaire.","1440p : au moins une carte graphique de milieu de gamme.","4K : carte graphique haut de gamme avec 12 Go+ de VRAM et 32 Go de RAM."],h1:"Compose ton PC gamer idéal",sub:"Indique ton budget et ton objectif pour obtenir une liste de pièces compatibles.",budget:"Budget total (€)",ph:"p. ex. 1200",goal:"Usage principal de ce PC",g1:"Casual, polyvalent et eSports",g2:"Performance et gaming haute fréquence",g3:"Quality : 4K ou charges lourdes",go:"Afficher le conseil",total:"Prix total estimé",note:"Les prix sont des estimations du catalogue du {date}, pas des prix en direct. Pour les autres pays, ils sont convertis depuis les prix belges avec les taux de la BCE du 14 juillet 2026 et la TVA locale (hors taxe de vente pour les États-Unis et le Canada), les prix en magasin peuvent donc différer.",copy:"Copier le conseil",copied:"Conseil copié.",copyFail:"Copie impossible. Sélectionne la liste ci-dessus et copie-la à la main.",errNum:"Saisis un nombre valide, par exemple 850 ou 1200,50.",errMin:"Cet objectif demande au moins {m} pour une config complète du catalogue.",over:"Attention : cette config dépasse ton budget de {b} de {d}.",left:"Il te reste {d} sur ton budget de {b}.",parts:["Processeur (CPU)","Refroidissement CPU","Carte mère","Mémoire (RAM)","Carte graphique (GPU)","Stockage (SSD)","Alimentation","Boîtier"],stock:"Ventirad CPU d’origine (fourni)",up:"Avec {d} de budget en plus, tu pourrais passer à : {n}.",max:"Ton budget dépasse la gamme haute du catalogue. Le reste peut aller dans un écran ou des périphériques.",compat:"Vérifié : socket, type de mémoire, format de carte mère, place du radiateur dans le boîtier et puissance de l’alimentation. La longueur de la carte graphique et la hauteur du ventirad ne sont pas vérifiées.",excl:"Non inclus : écran, licence Windows, clavier et souris.",head:"Conseil de config PC",bud:"Budget",cat:"Catégorie",tot:"Prix total",lang:"Langue"}
+};
+// ===== PRICE CATALOG: edit prices here (p = price in €, s = performance score) =====
+// ff = board/case size (mATX or ATX), rad = max radiator size in mm (0 = air only)
+var UPDATED = "2026-10-23";
+var STALE = Date.now() - new Date(UPDATED) > 30 * 864e5;
+var PSU_MARGIN = 1.6; // PSU watts must be >= (CPU W + GPU W) * margin
+var CPUS = [
+  {n:"Intel Core i3-12100F",p:90,s:40,sock:"LGA1700",w:60,box:1},
+  {n:"Intel Core i5-12400F",p:125,s:55,sock:"LGA1700",w:65,box:1},
+  {n:"AMD Ryzen 5 5600X",p:135,s:58,sock:"AM4",w:65,box:1},
+  {n:"Intel Core i5-13400F",p:210,s:65,sock:"LGA1700",w:65,box:1},
+  {n:"AMD Ryzen 5 7600X",p:215,s:72,sock:"AM5",w:105,box:0},
+  {n:"AMD Ryzen 7 7800X3D",p:365,s:100,sock:"AM5",w:120,box:0},
+  {n:"AMD Ryzen 9 7950X3D",p:520,s:112,sock:"AM5",w:120,box:0}];
+var GPUS = [
+  {n:"AMD RX 6600 (8GB)",p:210,s:35,w:132,v:8},
+  {n:"NVIDIA RTX 4060 (8GB)",p:315,s:45,w:115,v:8},
+  {n:"AMD RX 6700 XT (12GB)",p:310,s:52,w:230,v:12},
+  {n:"NVIDIA RTX 4060 Ti (16GB)",p:440,s:58,w:165,v:16},
+  {n:"AMD RX 7700 XT (12GB)",p:460,s:68,w:245,v:12},
+  {n:"NVIDIA RTX 4070 Super (12GB)",p:640,s:85,w:220,v:12},
+  {n:"NVIDIA RTX 4070 Ti Super (16GB)",p:845,s:100,w:285,v:16},
+  {n:"NVIDIA RTX 4080 Super (16GB)",p:1070,s:125,w:320,v:16},
+  {n:"NVIDIA RTX 4090 (24GB)",p:1800,s:165,w:450,v:24}];
+var BOARDS = [
+  {n:"Gigabyte H610M S2H (LGA1700)",p:85,sock:"LGA1700",m:"D4",ff:"mATX"},
+  {n:"MSI PRO B760M-P DDR4",p:105,sock:"LGA1700",m:"D4",ff:"mATX"},
+  {n:"MSI B550-A PRO (AM4)",p:95,sock:"AM4",m:"D4",ff:"ATX"},
+  {n:"MSI B760 GAMING PLUS WIFI",p:150,sock:"LGA1700",m:"D5",ff:"ATX"},
+  {n:"ASUS TUF GAMING B650-PLUS WIFI (AM5)",p:180,sock:"AM5",m:"D5",ff:"ATX"},
+  {n:"Gigabyte B650 AORUS ELITE AX",p:210,sock:"AM5",m:"D5",ff:"ATX"},
+  {n:"MSI MAG X670E TOMAHAWK WIFI",p:270,sock:"AM5",m:"D5",ff:"ATX"},
+  {n:"Gigabyte X670E AORUS MASTER (AM5)",p:320,sock:"AM5",m:"D5",ff:"ATX"}];
+var RAMS = [
+  {n:"16GB DDR4 3200MHz CL16",p:45,m:"D4",gb:16},
+  {n:"32GB (2x16GB) DDR5 5600MHz",p:105,m:"D5",gb:32},
+  {n:"32GB (2x16GB) DDR5 6000MHz CL30",p:115,m:"D5",gb:32},
+  {n:"64GB (2x32GB) DDR5 6000MHz CL30",p:210,m:"D5",gb:64}];
+var STOCK = {n:null,p:0,rad:0};
+var COOLERS = [
+  {n:"Thermalright Assassin X 120",p:22,rad:0},
+  {n:"Thermalright Peerless Assassin 120 SE",p:40,rad:0},
+  {n:"DeepCool LS720 360mm AIO",p:120,rad:360},
+  {n:"NZXT Kraken Elite 360 AIO",p:260,rad:360}];
+var PSUS = [
+  {n:"500W 80+ Bronze PSU",p:55,w:500},{n:"600W 80+ Bronze PSU",p:65,w:600},
+  {n:"650W 80+ Bronze PSU",p:70,w:650},{n:"650W 80+ Gold, modular",p:90,w:650},
+  {n:"700W 80+ Gold PSU",p:95,w:700},{n:"750W 80+ Gold, modular",p:110,w:750},
+  {n:"850W 80+ Gold ATX 3.0",p:140,w:850},{n:"1000W 80+ Platinum ATX 3.0",p:180,w:1000},
+  {n:"1200W 80+ Platinum ATX 3.0",p:260,w:1200}];
+var CASES = [
+  {n:"Mini tower (mATX)",p:45,ff:"mATX",rad:0},{n:"Compact mid tower (mATX)",p:55,ff:"mATX",rad:240},
+  {n:"Mid tower, airflow",p:60,ff:"ATX",rad:240},{n:"Gaming tower, high airflow",p:85,ff:"ATX",rad:240},
+  {n:"NZXT H5 Flow Black",p:95,ff:"ATX",rad:240},{n:"Corsair 4000D Airflow RGB Black",p:110,ff:"ATX",rad:360},
+  {n:"Lian Li O11 Dynamic EVO Black",p:160,ff:"ATX",rad:360}];
+var SSDS = [{n:"1TB NVMe M.2 SSD (Gen4)",p:65},{n:"2TB NVMe M.2 SSD (Gen4)",p:120},{n:"4TB NVMe M.2 SSD (Gen4)",p:240}];
+
+// ===== PICKER: best performance within budget, with compatibility checks =====
+function cheapest(list, ok) {
+  return list.filter(ok || function () { return true; }).sort(function (a, b) { return a.p - b.p; })[0];
+}
+function caseFor(mb, rad, gl, ch) { return cheapest(CASES, function (x) { var l = CLIM(x.n); return (x.ff === "ATX" || mb.ff === "mATX") && x.rad >= rad && l.g >= (gl || 0) && l.c >= (ch || 0); }); }
+function build(b, g, o) {
+  o = o || {};
+  var w = g === "2" ? [0.35, 0.65] : g === "3" ? [0.25, 0.75] : [0.5, 0.5], c = [];
+  CPUA.forEach(function (cpu) { GPUS.forEach(function (gpu) { RAMS.forEach(function (ram) {
+    if (g === "3" && (gpu.v < 12 || ram.gb < 32 || cpu.s < 65)) return;
+    if (o.r === "2" && gpu.s < 45) return;
+    if (o.r === "3" && (gpu.s < 85 || gpu.v < 12 || ram.gb < 32 || cpu.s < 65)) return;
+    if (o.v && (cpu.sock.indexOf("LGA") === 0) !== (o.v === "intel")) return;
+    var psu = cheapest(PSUS, function (x) { return x.w >= (cpu.w + gpu.w) * PSU_MARGIN; });
+    if (!psu) return;
+    var cool = cpu.box ? STOCK : COOLERS[0];
+    BOARDS.forEach(function (mb) {
+      if (mb.sock !== cpu.sock || mb.m !== ram.m) return;
+      var cs = caseFor(mb, cool.rad, glen(gpu), CH(cool.n)); if (!cs) return;
+      var it = [cpu, cool, mb, ram, gpu, SSDS[0], psu, cs];
+      c.push({it: it, cost: it.reduce(function (s, x) { return s + x.p; }, 0), score: w[0] * cpu.s + w[1] * gpu.s - 0.8 * Math.max(0, gpu.s * 0.8 - cpu.s)});
+    });
+  }); }); });
+  var fit = c.filter(function (x) { return x.cost <= b; });
+  if (!fit.length) return c.sort(function (x, y) { return x.cost - y.cost; })[0];
+  return fit.sort(function (x, y) { return y.score - x.score || x.cost - y.cost; })[0];
+}
+function minFor(g, o) { return Math.ceil(build(0, g, o).cost / 10) * 10; }
+function pick(b, g, o) {
+  var base = build(b, g, o), it = base.it.slice(), left = b - base.cost, cpu = it[0];
+  function up(i, list, ok) {
+    var cur = it[i], o = list.filter(function (x) { return (!ok || ok(x)) && x.p >= cur.p && x.p - cur.p <= left; }).sort(function (x, y) { return y.p - x.p; })[0];
+    if (o && o.p > cur.p) { left -= o.p - cur.p; it[i] = o; }
+  }
+  function upCooler() { // an AIO only for hot CPUs; the case is swapped when it lacks radiator room
+    var best = null;
+    COOLERS.forEach(function (c) {
+      if (c.p <= it[1].p || (cpu.w < 105 && c.rad > 0)) return;
+      var cs = c.rad > it[7].rad ? caseFor(it[2], c.rad, glen(it[4]), CH(c.n)) : it[7]; if (!cs || CH(c.n) > CLIM(cs.n).c) return; var d = c.p - it[1].p + cs.p - it[7].p;
+      if (d <= left && (!best || c.p > best.c.p)) best = {c: c, cs: cs, d: d};
+    });
+    if (best) { left -= best.d; it[1] = best.c; it[7] = best.cs; }
+  }
+  if (left > 0) {
+    upCooler();
+    up(3, RAMS, function (x) { return x.m === it[2].m && x.gb >= it[3].gb && x.gb <= (g === "3" ? 64 : 32); });
+    up(5, SSDS, function (x) { return g === "3" || x.p <= 120; });
+    up(7, CASES, function (x) { return x.rad >= it[1].rad && (x.ff === "ATX" || it[2].ff === "mATX") && CLIM(x.n).g >= glen(it[4]) && CLIM(x.n).c >= CH(it[1].n); });
+    up(2, BOARDS, function (x) { return x.sock === cpu.sock && x.m === it[2].m && (x.ff === "mATX" || it[7].ff === "ATX"); });
+    up(6, PSUS, function (x) { return x.w >= it[6].w && x.w <= it[6].w * 1.3; });
+  }
+  var upg = null;
+  for (var d = 25; d <= 600 && !upg; d += 25) {
+    var n = build(b + d, g, o);
+    var ch = [0, 4].filter(function (i) { return n.it[i].s > it[i].s; }).map(function (i) { return n.it[i].n; });
+    if (n.score > base.score && ch.length) upg = {d: d, n: ch.join(" + ")};
+  }
+  return {grp: tier(b), items: it, up: upg, left: left};
+}
+function dateStr() { return new Date(UPDATED).toLocaleDateString(LOC[lang], {day: "numeric", month: "long", year: "numeric"}); }
+
+var lang = "nl", state = null, text = "";
+try { var sv = localStorage.getItem("pcb-lang"); if (sv && L[sv]) lang = sv; else { var nv = (navigator.language || "nl").slice(0, 2); if (L[nv]) lang = nv; } } catch (e) {}
+var $ = function (id) { return document.getElementById(id); };
+var eur = function (x) { return "€" + x.toLocaleString(LOC[lang], {minimumFractionDigits: 2, maximumFractionDigits: 2}); };
+
+function applyLang() {
+  var t = L[lang];
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i18n]").forEach(function (el) { el.textContent = t[el.getAttribute("data-i18n")].replace("{date}", dateStr()); });
+  $("budget").placeholder = t.ph;
+  $("lang").setAttribute("aria-label", t.lang);
+  $("lang").value = lang;
+  $("err").textContent = "";
+  $("copied").textContent = "";
+  buildOwn(); renderModes();
+  if (state) render();
+}
+function render() {
+  var t = L[lang], b = state.b, r = pick(b, state.g, {v: state.v, r: state.r});
+  var tabs = $("tabs"); tabs.textContent = "";
+  [["", t.vbest], ["intel", "Intel"], ["amd", "AMD"]].forEach(function (v) {
+    var bt = document.createElement("button"); bt.type = "button"; bt.textContent = v[1];
+    bt.setAttribute("aria-pressed", String(state.v === v[0]));
+    bt.addEventListener("click", function () { state.v = v[0]; render(); });
+    tabs.appendChild(bt);
+  });
+  var rows = r.items.map(function (x, i) { return [t.parts[i], x.n === null ? t.stock : x.n, x.p, x.n !== null]; });
+  var total = rows.reduce(function (s, x) { return s + x[2]; }, 0);
+  $("cat").textContent = r.grp;
+  var tb = $("parts"); tb.textContent = "";
+  rows.forEach(function (x) {
+    var tr = document.createElement("tr");
+    [x[0], x[1], eur(x[2])].forEach(function (c, i) {
+      var td = document.createElement("td"); td.textContent = c;
+      if (i === 1) {
+        td.className = "name";
+        if (x[3]) { var a = document.createElement("a"); a.href = shopUrl(x[1]); a.target = "_blank"; a.rel = "noopener"; a.textContent = "↗"; a.title = t.buy; a.setAttribute("aria-label", t.buy + ": " + x[1]); td.appendChild(a); }
+      }
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+  $("total").textContent = eur(total);
+  $("bar").style.width = Math.min(100, total / b * 100) + "%";
+  $("meter").className = "meter" + (total > b ? " over" : "");
+  var st = $("status"), msg;
+  if (total > b) { msg = t.over.replace("{d}", eur(total - b)).replace("{b}", eur(b)); st.className = "status bad"; }
+  else { msg = t.left.replace("{d}", eur(b - total)).replace("{b}", eur(b)); st.className = "status ok"; }
+  st.textContent = msg;
+  $("up").textContent = r.up ? t.up.replace("{d}", eur(r.up.d)).replace("{n}", r.up.n) : (r.left > 250 ? t.max : "");
+  $("why").textContent = t.why[state.g - 1] + " " + t.rw[state.r - 1] + (STALE ? " " + t.stale : "");
+  text = t.head + "\n" + t.bud + ": " + eur(b) + "\n" + t.cat + ": " + r.grp + "\n\n" + rows.map(function (x) { return x[0] + ": " + x[1] + " (" + eur(x[2]) + ")"; }).join("\n") + "\n\n" + t.tot + ": " + eur(total) + "\n" + msg;
+  $("result").hidden = false;
+  LASTI = r.items; V3A = V3A || Viewer($("v3a")); if (V3A) V3A.set(r.items);
+}
+$("form").addEventListener("submit", function (e) {
+  e.preventDefault();
+  var t = L[lang], b = parseFloat($("budget").value.replace(",", ".")) / PF(), g = document.querySelector("input[name=goal]:checked").value;
+  $("err").textContent = "";
+  if (isNaN(b)) { $("err").textContent = t.errNum; $("result").hidden = true; state = null; return; }
+  var rs = document.querySelector("input[name=res]:checked").value, m = minFor(g, {r: rs});
+  if (b < m) { $("err").textContent = t.errMin.replace("{m}", eur(m)); $("result").hidden = true; state = null; return; }
+  state = {b: b, g: g, r: rs, v: ""};
+  $("copied").textContent = "";
+  render();
+  $("result").scrollIntoView({behavior: "smooth", block: "start"});
+});
+$("copy").addEventListener("click", function () {
+  var t = L[lang], out = $("copied");
+  try { navigator.clipboard.writeText(text).then(function () { out.textContent = t.copied; }, function () { out.textContent = t.copyFail; }); }
+  catch (e) { out.textContent = t.copyFail; }
+});
+var mode = "adv", own = null, otext = "";
+function renderModes() {
+  var t = L[lang], nav = $("modes"); nav.textContent = "";
+  [["adv", t.tabAdv], ["own", t.tabOwn]].forEach(function (m) {
+    var b = document.createElement("button"); b.type = "button"; b.textContent = m[1];
+    b.setAttribute("aria-pressed", String(mode === m[0]));
+    b.addEventListener("click", function () { mode = m[0]; $("v-adv").hidden = mode !== "adv"; $("v-own").hidden = mode !== "own"; renderModes(); });
+    nav.appendChild(b);
+  });
+}
+$("ocopy").addEventListener("click", function () {
+  var t = L[lang], out = $("ocopied");
+  try { navigator.clipboard.writeText(otext).then(function () { out.textContent = t.copied; }, function () { out.textContent = t.copyFail; }); }
+  catch (e) { out.textContent = t.copyFail; }
+});
+// ===== EXTENDED CATALOG for the Build-your-own tab (estimated prices, edit freely) =====
+var CPUX=[["Intel Core i5-14600K",290,80,"LGA1700",125,0],["Intel Core i7-14700K",400,92,"LGA1700",125,0],["Intel Core i9-14900K",520,105,"LGA1700",125,0],["AMD Ryzen 5 5600",110,55,"AM4",65,1],["AMD Ryzen 7 5800X3D",300,75,"AM4",105,0],["AMD Ryzen 5 7600",190,68,"AM5",65,1],["AMD Ryzen 7 7700",290,80,"AM5",65,1],["AMD Ryzen 9 7900X",380,95,"AM5",170,0],["AMD Ryzen 7 9800X3D",480,118,"AM5",120,0]];
+var GPUX=[["NVIDIA RTX 3060 (12GB)",250,33,170,12],["Intel Arc B580 (12GB)",270,42,190,12],["AMD RX 7600 XT (16GB)",330,46,190,16],["NVIDIA RTX 4060 Ti (8GB)",390,53,160,8],["NVIDIA RTX 4070 (12GB)",540,75,200,12],["AMD RX 7800 XT (16GB)",520,74,263,16],["AMD RX 7900 GRE (16GB)",560,78,260,16],["NVIDIA RTX 5070 (12GB)",600,88,250,12],["AMD RX 7900 XTX (24GB)",900,105,355,24],["NVIDIA RTX 5080 (16GB)",1150,135,360,16],["NVIDIA RTX 5090 (32GB)",2300,190,575,32]];
+var BRDX=[["ASUS PRIME B550-PLUS",110,"AM4","D4","ATX"],["Gigabyte B550M DS3H",80,"AM4","D4","mATX"],["MSI MAG B650 TOMAHAWK WIFI",200,"AM5","D5","ATX"],["ASRock B650M Pro RS",140,"AM5","D5","mATX"],["Gigabyte B650M GAMING X AX",150,"AM5","D5","mATX"],["MSI MAG X870 TOMAHAWK WIFI",290,"AM5","D5","ATX"],["ASRock B760M Pro RS",120,"LGA1700","D5","mATX"],["MSI PRO Z790-P WIFI",210,"LGA1700","D5","ATX"],["ASUS PRIME Z790-P D4",200,"LGA1700","D4","ATX"],["ASUS ROG STRIX Z790-E GAMING WIFI",380,"LGA1700","D5","ATX"]];
+var RAMX=[["G.Skill Ripjaws V 16GB DDR4 3600 CL18",42,"D4",16],["Corsair Vengeance 32GB (2x16GB) DDR4 3600 CL18",75,"D4",32],["Kingston Fury Beast 32GB (2x16GB) DDR5 6000 CL36",100,"D5",32],["Corsair Vengeance RGB White 32GB DDR5 6000 CL30",125,"D5",32],["G.Skill Trident Z5 RGB 32GB DDR5 6400 CL32",135,"D5",32],["G.Skill Trident Z5 Neo 64GB (2x32GB) DDR5 6000 CL30",230,"D5",64],["Corsair Dominator Titanium White 64GB DDR5 6400",290,"D5",64],["Kingston Fury Renegade 96GB (2x48GB) DDR5 6400",330,"D5",96]];
+var COLX=[["DeepCool AK400",30,0],["Noctua NH-U12S",75,0],["be quiet! Dark Rock Pro 5",100,0],["Noctua NH-D15 chromax.black",110,0],["Arctic Liquid Freezer III 240",85,240],["Arctic Liquid Freezer III 360",110,360],["NZXT Kraken 240 White",140,240],["Lian Li Galahad II 360 White",130,360],["Corsair iCUE H150i Elite 360 White",190,360]];
+var SSDX=[["Kingston NV3 500GB NVMe",38],["WD Black SN850X 1TB",80],["WD Black SN850X 2TB",135],["Samsung 990 Pro 2TB",160],["Crucial T500 2TB",130],["Samsung 870 EVO 2TB SATA",130],["Crucial T705 4TB (Gen5)",400]];
+var PSUX=[["MSI MAG A650BN 650W 80+ Bronze",60,650],["Corsair RM750e 750W 80+ Gold",105,750],["be quiet! Pure Power 12 M 850W Gold",125,850],["Corsair RM850e 850W Gold ATX 3.0 White",150,850],["Seasonic Focus GX-1000 1000W Gold",170,1000],["Corsair RM1000x Shift 1000W Gold",190,1000],["Seasonic Vertex GX-1200 1200W Gold",240,1200],["be quiet! Straight Power 12 1200W Platinum",250,1200],["Corsair HX1500i 1500W Platinum",330,1500]];
+var CASEX=[["Fractal Design Pop Mini Air (mATX)",85,"mATX",240],["Montech Air 903 Max",80,"ATX",360],["NZXT H5 Flow White",95,"ATX",240],["Lian Li Lancool 216",100,"ATX",360],["Corsair 4000D Airflow White",105,"ATX",360],["be quiet! Pure Base 500DX",110,"ATX",360],["Fractal Design North Black",130,"ATX",360],["Fractal Design North White",135,"ATX",360],["NZXT H7 Flow",130,"ATX",360],["Lian Li O11 Dynamic EVO White",170,"ATX",360]];
+// ===== CPUs from PCPartPicker list (USD ex tax -> EUR incl. 21% VAT; scores are estimated) =====
+// [name, USD, cores, boost GHz, arch (Z5 Zen5, Z4 Zen4, Z3 Zen3, Z2 Zen2, Zp Zen+, AL Alder, RL Raptor, AR Arrow Lake), TDP W]
+var CPUY = [["AMD Ryzen 5 9600X",169,6,5.4,"Z5",65],["AMD Ryzen 9 9950X3D",589.99,16,5.7,"Z5",170],["AMD Ryzen 7 9850X3D",399.99,8,5.6,"Z5",120],["AMD Ryzen 7 9700X",258.99,8,5.5,"Z5",65],["AMD Ryzen 9 9950X3D2",799,16,5.6,"Z5",200],["AMD Ryzen 5 7500F",155.39,6,5,"Z4",65],["AMD Ryzen 9 9900X",331,12,5.6,"Z5",120],["AMD Ryzen 5 7600X3D",249.99,6,4.7,"Z4",65],["AMD Ryzen 5 7500X3D",289.67,6,4.5,"Z4",65],["AMD Ryzen 9 9950X",489,16,5.7,"Z5",170],["AMD Ryzen 7 7700X3D",299,8,4.5,"Z4",120],["AMD Ryzen 9 9900X3D",526,12,5.5,"Z5",120],["AMD Ryzen 5 9600",249.99,6,5.2,"Z5",65],["AMD Ryzen 5 8400F",169,6,4.7,"Z4",65],["AMD Ryzen 7 8700F",229.09,8,5,"Z4",65],["AMD Ryzen 7 7700X",209,8,5.4,"Z4",105],["AMD Ryzen 7 8700G",260.5,8,5.1,"Z4",65],["AMD Ryzen 5 8500G",162,6,5,"Z4",65],["AMD Ryzen 5 8600G",183.5,6,5,"Z4",65],["AMD Ryzen 9 7900",343.02,12,5.4,"Z4",65],["AMD Ryzen 9 7900X3D",679.99,12,5.6,"Z4",120],["AMD Ryzen 9 7950X",589.95,16,5.7,"Z4",170],
+["AMD Ryzen 5 5500",91.1,6,4.2,"Z3",65],["AMD Ryzen 7 5700X",152.99,8,4.6,"Z3",65],["AMD Ryzen 7 5800X",184.2,8,4.7,"Z3",105],["AMD Ryzen 5 5500F",89.99,6,4.4,"Z3",65],["AMD Ryzen 7 5700G",196.99,8,4.6,"Z3",65],["AMD Ryzen 7 5700X3D",499.99,8,4.1,"Z3",105],["AMD Ryzen 9 5950X",403,16,4.9,"Z3",105],["AMD Ryzen 7 5800XT",219,8,4.8,"Z3",105],["AMD Ryzen 9 5900X",629.88,12,4.8,"Z3",105],["AMD Ryzen 3 3200G",85.48,4,4,"Zp",65],["AMD Ryzen 7 5700",189.99,8,4.6,"Z3",65],["AMD Ryzen 5 5600XT",168.99,6,4.7,"Z3",65],["AMD Ryzen 5 4500",99.99,6,4.1,"Z2",65],["AMD Ryzen 5 5600GT",229.99,6,4.6,"Z3",65],["AMD Ryzen 9 5900XT",315,16,4.8,"Z3",105],["AMD Ryzen 3 4100",81.5,4,4,"Z2",65],["AMD Ryzen 5 5600T",195.06,6,4.5,"Z3",65],["AMD Ryzen 7 5800X3D 10th Anniversary Edition",319.99,8,4.5,"Z3",105],["AMD Ryzen 5 2600",263,6,3.9,"Zp",65],
+["Intel Core Ultra 7 270K Plus",290.55,24,5.4,"AR",125],["Intel Core Ultra 5 250K Plus",145.99,18,5.3,"AR",125],["Intel Core Ultra 9 285K",399.99,24,5.7,"AR",125],["Intel Core Ultra 5 250KF Plus",189.99,18,5.3,"AR",125],["Intel Core Ultra 7 265K",332.99,20,5.5,"AR",125],["Intel Core Ultra 5 225F",141.81,10,4.9,"AR",65],["Intel Core Ultra 7 265KF",379.06,20,5.5,"AR",125],["Intel Core Ultra 5 245KF",169.99,14,5.2,"AR",125],["Intel Core Ultra 5 225",169.99,10,4.9,"AR",65],["Intel Core Ultra 5 245K",169.99,14,5.2,"AR",125],["Intel Core Ultra 7 265F",359.99,20,5.3,"AR",65],["Intel Core Ultra 7 265",379.99,20,5.3,"AR",65],["Intel Core Ultra 9 285",639.99,24,5.6,"AR",65],["Intel Core Ultra 5 235",282.66,14,5,"AR",65],
+["Intel Core i5-14400F",154.99,10,4.7,"RL",65],["Intel Core i7-12700KF",263.55,12,5,"AL",125],["Intel Core i5-14600KF",232.08,14,5.3,"RL",125],["Intel Core i7-14700KF",249.99,20,5.6,"RL",125],["Intel Core i3-14100F",99.99,4,4.7,"RL",58],["Intel Core i9-14900KF",344.99,24,6,"RL",125],["Intel Core i5-14400",179.59,10,4.7,"RL",65],["Intel Core i9-12900K",309.99,16,5.2,"AL",125],["Intel Core i7-14700F",299.99,20,5.4,"RL",65],["Intel Core i5-12400",198.95,6,4.4,"AL",65],["Intel Core i5-12600K",247.96,10,4.9,"AL",125],["Intel Core i3-14100",129.99,4,4.7,"RL",60],["Intel Core i7-12700K",274.98,12,5,"AL",125],["Intel Core i5-12600KF",209,10,4.9,"AL",125],["Intel Core i5-13600K",309.99,14,5.1,"RL",125],["Intel Core i9-12900KF",245.99,16,5.2,"AL",125],["Intel Core i5-14500",247.99,14,5,"RL",65],["Intel Core i3-12100",171.55,4,4.3,"AL",60],["Intel Core i7-13700KF",435.35,16,5.4,"RL",125],["Intel Core i7-12700F",348.3,12,4.9,"AL",65],["Intel Core i7-14700",349.99,20,5.4,"RL",65],["Intel Core i7-12700",319.99,12,4.9,"AL",65],["Intel Core i9-13900KF",591.85,24,5.8,"RL",125],["Intel Core i5-12500",285.14,6,4.6,"AL",65],["Intel Core i5-12600",326.27,6,4.8,"AL",65],["Intel Core i9-12900KS",589.95,16,5.5,"AL",150],["Intel Pentium Gold G7400",124.65,2,3.7,"AL",46],["Intel Core i9-14900F",549,24,5.8,"RL",65],["Intel Core i9-14900",582.03,24,5.8,"RL",65],["Intel 300",155.12,2,3.9,"RL",46],["Intel Core i9-12900F",419.99,16,5.1,"AL",65],["Intel Celeron G6900",101.96,2,3.4,"AL",46],["Intel Core i9-13900K",549.59,24,5.8,"RL",125],["Intel Core i7-13700F",403.19,16,5.2,"RL",65],["Intel Core i9-14900KS",449,24,6.2,"RL",150],["Intel Core i9-13900KS",579.99,24,6,"RL",150]];
+var ARCH = {Z5: [1.22, "AM5", 1], Z4: [1.15, "AM5", 1], Z3: [1, "AM4", 1], Z2: [.88, "AM4", 1], Zp: [.75, "AM4", 1], AL: [1.05, "LGA1700", .85], RL: [1.12, "LGA1700", .85], AR: [1.1, "LGA1851", .85]};
+CPUY.forEach(function (r) {
+  var a = ARCH[r[4]], n = r[0], c = r[2], intel = r[4] === "AL" || r[4] === "RL" || r[4] === "AR", eff = Math.min(c, 8) + (intel ? .1 : .05) * Math.max(0, c - 8), isK = /\d{3,5}K[FS]?\b/.test(n);
+  var sc = Math.round(r[3] * a[0] * Math.sqrt(eff) * a[2] * (/X3D/.test(n) ? 1.2 : 1) * 5.15), w = intel && isK ? (c >= 16 ? 250 : c >= 12 ? 190 : r[5]) : r[5];
+  if (CPUX.every(function (x) { return x[0] !== n; }) && CPUS.every(function (x) { return x.n !== n; })) CPUX.push([n, Math.round(r[1] / 1.1405 * 1.21), sc, a[1], w, (r[5] <= 65 && !/X3D|\dX\b|XT|\d{3,5}K|Plus/.test(n)) ? 1 : 0]);
+});
+BRDX.push(["ASRock B860M Pro RS WiFi", 150, "LGA1851", "D5", "mATX"], ["MSI MAG B860 TOMAHAWK WIFI", 210, "LGA1851", "D5", "ATX"], ["Gigabyte Z890 AORUS ELITE WIFI7", 330, "LGA1851", "D5", "ATX"], ["ASUS ROG STRIX Z890-E GAMING WIFI", 480, "LGA1851", "D5", "ATX"]);
+function X(a, k) { return a.map(function (r) { var o = {}; k.forEach(function (key, i) { o[key] = r[i]; }); return o; }); }
+[[CPUS, CPUX, ["n", "p", "s", "sock", "w", "box"]], [GPUS, GPUX, ["n", "p", "s", "w", "v"]], [BOARDS, BRDX, ["n", "p", "sock", "m", "ff"]], [RAMS, RAMX, ["n", "p", "m", "gb"]], [COOLERS, COLX, ["n", "p", "rad"]], [SSDS, SSDX, ["n", "p"]], [PSUS, PSUX, ["n", "p", "w"]], [CASES, CASEX, ["n", "p", "ff", "rad"]]].forEach(function (e) { e[0].push.apply(e[0], X(e[1], e[2])); });
+// the advisor only considers CPUs that are not beaten by a cheaper CPU of the same socket
+var CPUA = (function () { var best = {}, out = []; CPUS.slice().sort(function (a, b) { return a.p - b.p; }).forEach(function (c) { if (!best[c.sock] || c.s > best[c.sock]) { best[c.sock] = c.s; out.push(c); } }); return out; })();
+function ownLists() { return [CPUS, [STOCK].concat(COOLERS), BOARDS, RAMS, GPUS, SSDS, PSUS, CASES]; }
+// clearances in mm (estimates): max GPU length g, max air-cooler height c
+function CLIM(n) { var T = [[/Mini tower/, 270, 115], [/Compact mid/, 300, 135], [/Pop Mini/, 330, 145], [/Mid tower, air/, 350, 155], [/Gaming tower/, 380, 165], [/H5 Flow/, 365, 165], [/H7 Flow/, 400, 185], [/4000D/, 360, 170], [/O11/, 420, 167], [/Lancool/, 392, 187], [/Montech/, 420, 170], [/Pure Base/, 369, 190], [/North/, 355, 170]]; for (var i = 0; i < T.length; i++) if (T[i][0].test(n)) return {g: T[i][1], c: T[i][2]}; return {g: 340, c: 155}; }
+function glen(g) { return Math.round(Math.min(360, 200 + g.w * .35)); }
+function CH(n) { if (n === null) return 55; var T = [[/AIO|Liquid Freezer|Kraken|Galahad|iCUE/, 0], [/Assassin X/, 148], [/Peerless/, 155], [/AK400/, 155], [/NU?-?U12S|NH-U12S/, 158], [/NH-D15/, 165], [/Dark Rock/, 168]]; for (var i = 0; i < T.length; i++) if (T[i][0].test(n)) return T[i][1]; return 150; }
+var BR = ["Intel", "AMD", "NVIDIA", "MSI", "Gigabyte", "ASUS", "ASRock", "Thermalright", "DeepCool", "NZXT", "Corsair", "Lian Li", "Kingston", "G.Skill", "Samsung", "WD", "Crucial", "Seasonic", "be quiet!", "Fractal Design", "Noctua", "Arctic", "Montech"];
+function brandOf(n) { for (var i = 0; i < BR.length; i++) if (n.indexOf(BR[i]) === 0) return BR[i]; return "Generic"; }
+function A(i, x) {
+  var n = x.n || "";
+  return {brand: x.n === null ? "Stock" : brandOf(n), color: (n.match(/White|Silver|Pink/) || ["Black"])[0], sock: x.sock, mem: x.m ? (x.m === "D5" ? "DDR5" : "DDR4") : undefined, ff: x.ff, cap: i === 3 ? x.gb + "GB" : (n.match(/\d+(TB|GB)/) || [])[0], w: i === 6 ? x.w + "W" : undefined, vram: x.v ? x.v + "GB" : undefined, type: i === 1 ? (x.rad ? "AIO " + x.rad + "mm" : "Air") : undefined};
+}
+var FK = [["brand", "sock"], ["brand", "type", "color"], ["brand", "sock", "mem", "ff"], ["brand", "mem", "cap", "color"], ["brand", "vram"], ["brand", "cap"], ["brand", "w"], ["brand", "ff", "color"]];
+var cur = 0, fs = [];
+function F(i) { return fs[i] || (fs[i] = {q: "", max: "", sort: "lo", f: {}, ok: true}); }
+function mk(tag, props) { var e = document.createElement(tag); for (var k in props) e[k] = props[k]; return e; }
+function renderFilters() {
+  var t = L[lang], f = F(cur), box = $("ofilt"), fl = t.fl, list = ownLists()[cur]; box.textContent = "";
+  var q = mk("input", {type: "search", placeholder: fl.q, value: f.q}); q.setAttribute("aria-label", fl.q);
+  q.addEventListener("input", function () { f.q = q.value; renderList(); }); box.appendChild(q);
+  FK[cur].forEach(function (k) {
+    var s = mk("select", {}), vals = []; s.setAttribute("aria-label", fl[k]);
+    list.forEach(function (x) { var v = A(cur, x)[k]; if (v && vals.indexOf(v) < 0) vals.push(v); });
+    [""].concat(vals.sort()).forEach(function (v) { s.appendChild(mk("option", {value: v, textContent: v ? tv(v) : fl[k]})); });
+    s.value = f.f[k] || "";
+    s.addEventListener("change", function () { f.f[k] = s.value; renderList(); }); box.appendChild(s);
+  });
+  var mx = mk("input", {type: "number", placeholder: fl.max, value: f.max, min: 0}); mx.setAttribute("aria-label", fl.max);
+  mx.addEventListener("input", function () { f.max = mx.value; renderList(); }); box.appendChild(mx);
+  var so = mk("select", {}); so.setAttribute("aria-label", fl.lo);
+  [["lo", fl.lo], ["hi", fl.hi]].forEach(function (o) { so.appendChild(mk("option", {value: o[0], textContent: o[1]})); });
+  so.value = f.sort; so.addEventListener("change", function () { f.sort = so.value; renderList(); }); box.appendChild(so);
+  var lb = mk("label", {className: "chk"}), cb = mk("input", {type: "checkbox", checked: f.ok});
+  cb.addEventListener("change", function () { f.ok = cb.checked; renderList(); });
+  lb.appendChild(cb); lb.appendChild(document.createTextNode(fl.ok)); box.appendChild(lb);
+}
+function renderList() {
+  var t = L[lang], fl = t.fl, list = ownLists()[cur], f = F(cur), S = selS(), base = warnsFor(S), rows = [], out = $("olist"); out.textContent = "";
+  list.forEach(function (x, j) {
+    var a = A(cur, x), name = x.n === null ? t.stock : x.n;
+    if (f.q && name.toLowerCase().indexOf(f.q.toLowerCase()) < 0) return;
+    if (f.max !== "" && x.p * PF() > +f.max) return;
+    for (var k in f.f) if (f.f[k] && String(a[k]) !== f.f[k]) return;
+    var S2 = S.slice(); S2[cur] = x;
+    var ok = warnsFor(S2).every(function (m) { return base.indexOf(m) >= 0; });
+    if (f.ok && !ok && j !== own[cur]) return;
+    rows.push({x: x, j: j, a: a, ok: ok, name: name});
+  });
+  rows.sort(function (a, b) { return f.sort === "hi" ? b.x.p - a.x.p : a.x.p - b.x.p; });
+  out.appendChild(mk("div", {className: "tg", textContent: fl.n.replace("{n}", rows.length)}));
+  if (!rows.length) out.appendChild(mk("p", {className: "note", textContent: fl.none}));
+  rows.forEach(function (r) {
+    var on = r.j === own[cur], d = mk("div", {className: "orow" + (on ? " sel" : "") + (r.ok ? "" : " bad")}), info = mk("div", {}), ra = mk("div", {className: "ra"});
+    info.appendChild(mk("div", {className: "nm", textContent: r.name + (r.ok ? "" : " ⚠")}));
+    info.appendChild(mk("div", {className: "tg", textContent: [r.a.brand].concat(FK[cur].slice(1).map(function (k) { return k === "color" ? tv(r.a[k]) : r.a[k]; })).filter(Boolean).join(" · ")}));
+    var bt = mk("button", {type: "button", textContent: on ? "✕ " + fl.sel : fl.pick}); bt.setAttribute("aria-pressed", String(on));
+    bt.addEventListener("click", function () { own[cur] = on ? -1 : r.j; updOwn(); renderList(); });
+    ra.appendChild(mk("span", {className: "pr", textContent: eur(r.x.p)})); ra.appendChild(bt);
+    d.appendChild(info); d.appendChild(ra); out.appendChild(d);
+  });
+}
+// ===== COUNTRIES: [currency, rate per 1 EUR (ECB, 14 Jul 2026), VAT %]. Catalog prices are Belgian (21% VAT) =====
+var CT = {BE:["EUR",1,21],NL:["EUR",1,21],DE:["EUR",1,19],FR:["EUR",1,20],ES:["EUR",1,21],IT:["EUR",1,22],PT:["EUR",1,23],AT:["EUR",1,20],IE:["EUR",1,23],FI:["EUR",1,25.5],LU:["EUR",1,17],GB:["GBP",.85215,20],US:["USD",1.1405,0],CA:["CAD",1.6095,0],AU:["AUD",1.6428,10],NZ:["NZD",1.9662,15],CH:["CHF",.9257,8.1],SE:["SEK",11.036,25],NO:["NOK",11.077,25],DK:["DKK",7.4753,25],PL:["PLN",4.3383,23],CZ:["CZK",24.284,21],HU:["HUF",361.33,27],RO:["RON",5.2487,21],TR:["TRY",53.6464,20],JP:["JPY",185.01,10],KR:["KRW",1705.61,10],IN:["INR",109.7215,18],BR:["BRL",5.8431,0],MX:["MXN",19.9587,16],ZA:["ZAR",18.7748,15],SG:["SGD",1.4743,9],HK:["HKD",8.9387,0],TH:["THB",38.235,7],PH:["PHP",70.362,12]};
+var CTRY = "BE";
+try { var sc0 = localStorage.getItem("pcb-ctry"); if (sc0 && CT[sc0]) CTRY = sc0; else { var rg = ((navigator.language || "").split("-")[1] || "").toUpperCase(); if (CT[rg]) CTRY = rg; } } catch (e) {}
+function PF() { var c = CT[CTRY]; return c[1] * (1 + c[2] / 100) / 1.21; }
+function money(x, dg) { var c = CT[CTRY][0]; dg = dg === 0 || {JPY:1,KRW:1,HUF:1,INR:1}[c] ? 0 : 2; return (x * PF()).toLocaleString(LOC[lang], {style: "currency", currency: c, minimumFractionDigits: dg, maximumFractionDigits: dg}); }
+eur = function (x) { return money(x); };
+function tier(b) { var a = [500, 700, 1000, 1400, 1800, 2300, 3000], i = a.length - 1; while (i > 0 && b < a[i]) i--; return i === a.length - 1 ? money(a[i], 0) + "+" : money(a[i], 0) + " – " + money(a[i + 1], 0); }
+function SYM() { var p = new Intl.NumberFormat(LOC[lang], {style: "currency", currency: CT[CTRY][0]}).formatToParts(0).filter(function (x) { return x.type === "currency"; })[0]; return p ? p.value : CT[CTRY][0]; }
+function shopUrl(q) { var e = encodeURIComponent(q); if (CTRY === "BE" || CTRY === "NL") return "https://tweakers.net/pricewatch/zoeken/?keyword=" + e; if (CTRY === "US") return "https://pcpartpicker.com/search/?q=" + e; if (CTRY === "GB") return "https://uk.pcpartpicker.com/search/?q=" + e; return "https://www.google.com/search?tbm=shop&gl=" + CTRY.toLowerCase() + "&q=" + e; }
+function fillCtry() {
+  var s = $("ctry"), dn = null; try { dn = new Intl.DisplayNames([lang], {type: "region"}); } catch (e) {}
+  var nm = function (c) { return dn ? dn.of(c) : c; };
+  s.textContent = "";
+  Object.keys(CT).sort(function (a, b) { return nm(a).localeCompare(nm(b), lang); }).forEach(function (c) { var o = document.createElement("option"); o.value = c; o.textContent = nm(c) + " (" + CT[c][0] + ")"; s.appendChild(o); });
+  s.value = CTRY; s.setAttribute("aria-label", {nl: "Land", en: "Country", de: "Land", fr: "Pays"}[lang]);
+}
+var _al = applyLang;
+applyLang = function () {
+  _al(); var t = L[lang], s = SYM();
+  document.querySelector("label[for=budget]").textContent = t.budget.replace("€", s);
+  var mx = document.querySelector("#ofilt input[type=number]"); if (mx) mx.placeholder = mx.placeholder.replace("€", s);
+  fillCtry();
+};
+$("ctry").addEventListener("change", function () {
+  var old = PF(); CTRY = this.value; try { localStorage.setItem("pcb-ctry", CTRY); } catch (e) {}
+  var bv = parseFloat($("budget").value); if (!isNaN(bv)) $("budget").value = Math.round(bv / old * PF());
+  applyLang();
+});
+// ===== 3D VIEWER (three.js) =====
+var V3A = null, V3O = null;
+var V3T = {nl: ["Sleep om te draaien · scroll om te zoomen", "Kies onderdelen om je build te zien"], en: ["Drag to rotate · scroll to zoom", "Pick parts to see your build"], de: ["Ziehen zum Drehen · Scrollen zum Zoomen", "Wähle Teile, um deinen Build zu sehen"], fr: ["Glisse pour tourner · molette pour zoomer", "Choisis des pièces pour voir ta config"]};
+var RGBS = {mode: "rainbow", c: 0x7c5cff}, CASEW = null, VW = [], RM = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+var NMS = {nl: ["regenboog", "violet", "cyaan", "rood", "groen", "oranje", "wit"], en: ["rainbow", "violet", "cyan", "red", "green", "orange", "white"], de: ["Regenbogen", "Violett", "Cyan", "Rot", "Grün", "Orange", "Weiß"], fr: ["arc-en-ciel", "violet", "cyan", "rouge", "vert", "orange", "blanc"]};
+var CN = {Black: {nl: "Zwart", de: "Schwarz", fr: "Noir"}, White: {nl: "Wit", de: "Weiß", fr: "Blanc"}, Silver: {nl: "Zilver", de: "Silber", fr: "Argent"}, Pink: {nl: "Roze", de: "Rosa", fr: "Rose"}};
+function tv(v) { return (CN[v] && CN[v][lang]) || v; }
+var LT = {nl: "Geschat verbruik / voeding", en: "Estimated draw / PSU", de: "Geschätzter Verbrauch / Netzteil", fr: "Consommation estimée / alim"};
+var LASTI = null;
+function syncRGB() {
+  var hx = ("000000" + RGBS.c.toString(16)).slice(-6);
+  document.querySelectorAll(".rgbc button[data-c]").forEach(function (b) { b.setAttribute("aria-pressed", String(RGBS.mode === "rainbow" ? b.dataset.c === "rainbow" : b.dataset.c !== "rainbow" && parseInt(b.dataset.c, 16) === RGBS.c)); });
+  document.querySelectorAll(".rgbc button[data-w]").forEach(function (b) { b.setAttribute("aria-pressed", String(CASEW !== null && (b.dataset.w === "1") === CASEW)); });
+  document.querySelectorAll(".rgbc input").forEach(function (i) { i.value = "#" + hx; });
+}
+function Viewer(el) {
+  var T = window.THREE; if (!T) return null;
+  var R; try { R = new T.WebGLRenderer({antialias: true, alpha: true}); } catch (e) { el.textContent = {nl: "3D-weergave niet beschikbaar op dit apparaat", en: "3D view is not available on this device", de: "3D-Ansicht auf diesem Gerät nicht verfügbar", fr: "Vue 3D indisponible sur cet appareil"}[lang]; el.style.display = "grid"; el.style.placeItems = "center"; el.style.color = "var(--muted)"; return null; }
+  var sc = new T.Scene(), cam = new T.PerspectiveCamera(36, 1, 1, 600), g = new T.Group(), yaw = .25, pit = .2, dist = 100, auto = true, w = 0, h = 0, d = null, cv = R.domElement, hint = document.createElement("div"), spins = [], leds = [], pcbT = null, brT = null, meshT = null, meshTs = {}, glT = null, wh = false, last = null, lastCn, tc = new T.Color(), manualModel = null;
+  R.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); R.outputEncoding = T.sRGBEncoding; R.toneMapping = T.ACESFilmicToneMapping; R.toneMappingExposure = 1.05;
+  R.shadowMap.enabled = true; R.shadowMap.type = T.PCFSoftShadowMap;
+  el.appendChild(cv); hint.className = "v3h"; el.appendChild(hint);
+  // Import a real GLB/GLTF model for preview. This does not alter the parts database.
+  var tools = document.createElement("div"); tools.className = "glb-tools";
+  var pick = document.createElement("button"); pick.type = "button"; pick.textContent = "GLB-model laden"; pick.className = "ghost";
+  var restore = document.createElement("button"); restore.type = "button"; restore.textContent = "PC-weergave"; restore.className = "ghost"; restore.hidden = true;
+  var file = document.createElement("input"); file.type = "file"; file.accept = ".glb,.gltf,model/gltf-binary,model/gltf+json";
+  var status = document.createElement("div"); status.className = "glb-status"; status.hidden = true;
+  pick.addEventListener("click", function () { file.click(); });
+  restore.addEventListener("click", function () { manualModel = null; restore.hidden = true; status.hidden = true; if (last) set(last); else { while (g.children.length) g.remove(g.children[0]); } });
+  file.addEventListener("change", function () {
+    var f = file.files && file.files[0]; if (!f) return;
+    if (!T.GLTFLoader) { status.textContent = "GLB-loader kon niet worden geladen. Controleer je internetverbinding."; status.hidden = false; return; }
+    status.textContent = "3D-model laden…"; status.hidden = false;
+    var url = URL.createObjectURL(f), loader = new T.GLTFLoader();
+    loader.load(url, function (gltf) {
+      URL.revokeObjectURL(url);
+      var model = gltf.scene || (gltf.scenes && gltf.scenes[0]);
+      if (!model) { status.textContent = "Dit bestand bevat geen 3D-scene."; return; }
+      model.updateMatrixWorld(true);
+      var box = new T.Box3().setFromObject(model), size = box.getSize(new T.Vector3()), center = box.getCenter(new T.Vector3());
+      var maxDim = Math.max(size.x, size.y, size.z);
+      if (!isFinite(maxDim) || maxDim <= 0) { status.textContent = "Het model heeft geen geldige afmetingen."; return; }
+      model.position.sub(center); model.scale.multiplyScalar(52 / maxDim);
+      model.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material) { var mats = Array.isArray(o.material) ? o.material : [o.material]; mats.forEach(function (m) { if (m.map) m.map.encoding = T.sRGBEncoding; }); } } });
+      while (g.children.length) { var old = g.children[0]; g.remove(old); }
+      g.add(model); manualModel = model; auto = true; yaw = .25; pit = .2; dist = 100;
+      restore.hidden = false; status.textContent = "Geladen: " + f.name;
+    }, undefined, function (err) {
+      URL.revokeObjectURL(url); status.textContent = "Kon dit model niet laden. Gebruik een geldig .glb-bestand."; console.error(err);
+    });
+    file.value = "";
+  });
+  tools.appendChild(pick); tools.appendChild(restore); tools.appendChild(file); el.appendChild(tools); el.appendChild(status);
+  var bar = document.createElement("div"); bar.className = "rgbc";
+  ["rainbow", "7c5cff", "22d3ee", "ff3b5c", "4ade80", "ffb020", "ffffff"].forEach(function (k) {
+    var b = document.createElement("button"); b.type = "button"; b.dataset.c = k; b.setAttribute("aria-label", "RGB " + (NMS[lang] || NMS.en)[["rainbow", "7c5cff", "22d3ee", "ff3b5c", "4ade80", "ffb020", "ffffff"].indexOf(k)]);
+    b.style.background = k === "rainbow" ? "conic-gradient(red,yellow,lime,cyan,blue,magenta,red)" : "#" + k;
+    b.addEventListener("click", function () { if (k === "rainbow") RGBS.mode = "rainbow"; else { RGBS.mode = "solid"; RGBS.c = parseInt(k, 16); } syncRGB(); });
+    bar.appendChild(b);
+  });
+  var ci = document.createElement("input"); ci.type = "color"; ci.value = "#7c5cff"; ci.setAttribute("aria-label", "RGB");
+  ci.addEventListener("input", function () { RGBS.mode = "solid"; RGBS.c = parseInt(ci.value.slice(1), 16); syncRGB(); });
+  [["0", "#1b1e25"], ["1", "#f1f3f6"]].forEach(function (k) {
+    var b = document.createElement("button"); b.type = "button"; b.dataset.w = k[0]; b.style.background = k[1]; b.setAttribute("aria-label", "case " + k[0]);
+    b.addEventListener("click", function () { CASEW = CASEW === (k[0] === "1") ? null : k[0] === "1"; syncRGB(); VW.forEach(function (v) { v.redraw(); }); }); bar.appendChild(b);
+  });
+  bar.appendChild(ci); el.appendChild(bar); syncRGB();
+  // soft studio environment for reflections
+  var es = new T.Scene(); es.add(new T.Mesh(new T.BoxGeometry(100, 100, 100), new T.MeshBasicMaterial({color: 0x20242f, side: T.BackSide})));
+  [[0, 45, 0, 70, 1, 70, 0xffffff, 3], [-48, 5, 10, 1, 50, 50, 0xffffff, 1.1], [48, 5, 10, 1, 50, 50, 0xffffff, 1.1], [0, 5, 48, 60, 30, 1, 0xffffff, 1.6]].forEach(function (p) {
+    var m = new T.Mesh(new T.BoxGeometry(p[3], p[4], p[5]), new T.MeshBasicMaterial({color: new T.Color(p[6]).multiplyScalar(p[7])})); m.position.set(p[0], p[1], p[2]); es.add(m);
+  });
+  sc.environment = new T.PMREMGenerator(R).fromScene(es, .03).texture;
+  sc.add(new T.HemisphereLight(0xbfc8ff, 0x10121a, .35));
+  var key = new T.DirectionalLight(0xffffff, 1.1); key.position.set(30, 70, 60); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -.0004;
+  var sh = key.shadow.camera; sh.left = -45; sh.right = 45; sh.top = 45; sh.bottom = -45; sh.near = 10; sh.far = 220; sc.add(key);
+  var rim = new T.PointLight(0x7c5cff, .35, 220); rim.position.set(-45, 20, 40); sc.add(rim); sc.add(g);
+  var glows = [new T.PointLight(0x7c5cff, .6, 50), new T.PointLight(0x7c5cff, .4, 45)]; glows[0].position.set(-6, 4, 4); glows[1].position.set(8, -8, 4); glows.forEach(function (l) { sc.add(l); });
+  cv.addEventListener("pointerdown", function (e) { d = e; auto = false; try { cv.setPointerCapture(e.pointerId); } catch (x) {} });
+  cv.addEventListener("pointermove", function (e) { if (!d) return; yaw -= (e.clientX - d.clientX) * .01; pit = Math.max(-.5, Math.min(1.1, pit + (e.clientY - d.clientY) * .008)); d = e; });
+  cv.addEventListener("pointerup", function () { d = null; });
+  cv.addEventListener("wheel", function (e) { e.preventDefault(); dist = Math.max(45, Math.min(180, dist + e.deltaY * .1)); }, {passive: false});
+  function loop() {
+    requestAnimationFrame(loop); var cw = el.clientWidth, ch = el.clientHeight; if (!cw) return;
+    if (cw !== w || ch !== h) { w = cw; h = ch; R.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
+    if (auto && !RM) { yaw = Math.sin(Date.now() / 2800) * .85; pit = .38 + .14 * Math.sin(Date.now() / 3700); }
+    var t = Date.now() / 4000;
+    spins.forEach(function (s) { s.rotation.z += RM ? 0 : .2; });
+    leds.forEach(function (l) { if (RGBS.mode === "rainbow") tc.setHSL((t * 1.5 + l.o) % 1, .9, .55); else tc.set(RGBS.c); l.m.color.copy(tc); if (l.m.emissive) l.m.emissive.copy(tc); });
+    if (RGBS.mode === "rainbow") tc.setHSL((t * 1.5) % 1, .9, .55); else tc.set(RGBS.c);
+    glows.forEach(function (l) { l.color.copy(tc); }); rim.color.copy(tc);
+    cam.position.set(Math.sin(yaw) * Math.cos(pit) * dist, Math.sin(pit) * dist, Math.cos(yaw) * Math.cos(pit) * dist); cam.lookAt(0, 0, 0); R.render(sc, cam);
+  }
+  loop();
+  function M(c, r, m, o) { return new T.MeshStandardMaterial(Object.assign({color: c, roughness: r == null ? .5 : r, metalness: m == null ? .3 : m}, o || {})); }
+  function LED(o) { var m = M(0xffffff, .3, 0, {emissive: 0xffffff, emissiveIntensity: 1.8}); leds.push({m: m, o: o || 0}); return m; }
+  function add(geo, mt, x, y, z, par) { var m = new T.Mesh(geo, mt); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; (par || g).add(m); return m; }
+  function RB(w, h, d, r) {
+    var b = Math.min(.25, d / 3, r), s = new T.Shape(), W = w / 2 - b, H = h / 2 - b, q = Math.max(.01, r - b);
+    s.moveTo(-W + q, -H); s.lineTo(W - q, -H); s.quadraticCurveTo(W, -H, W, -H + q); s.lineTo(W, H - q); s.quadraticCurveTo(W, H, W - q, H); s.lineTo(-W + q, H); s.quadraticCurveTo(-W, H, -W, H - q); s.lineTo(-W, -H + q); s.quadraticCurveTo(-W, -H, -W + q, -H);
+    var geo = new T.ExtrudeGeometry(s, {depth: d - 2 * b, bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: 2, curveSegments: 4}); geo.translate(0, 0, -(d - 2 * b) / 2); return geo;
+  }
+  function P(w, h, d, col, x, y, z, r, o) { return add(RB(w, h, d, r || .5), M(col, .45, .35, o), x, y, z); }
+  function cyl(r, l, mt, x, y, z) { var m = add(new T.CylinderGeometry(r, r, l, 32), mt, x, y, z); m.rotation.x = Math.PI / 2; return m; }
+  function sn(n, k) { return (n || "").replace(/\(.*?\)/g, "").replace(/\s+/g, " ").trim().slice(0, k || 16); }
+  function decal(t, fg, x, y, z, pw, ph, ry) {
+    var m = new T.Mesh(new T.PlaneGeometry(pw, ph), new T.MeshBasicMaterial({map: tex(function (c, a, b) { c.fillStyle = fg; c.font = "700 " + Math.round(b * .62) + "px sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(t, a / 2, b / 2 + 2, a - 8); }, 256, Math.max(32, Math.round(256 * ph / pw))), transparent: true, depthWrite: false}));
+    m.position.set(x, y, z); if (ry) m.rotation.y = ry; g.add(m);
+  }
+  function holeShape(s, o) { var p = new T.Path(); if (o.r) p.absarc(o.u, o.v, o.r, 0, 6.283, true); else { p.moveTo(o.u - o.w / 2, o.v - o.h / 2); p.lineTo(o.u + o.w / 2, o.v - o.h / 2); p.lineTo(o.u + o.w / 2, o.v + o.h / 2); p.lineTo(o.u - o.w / 2, o.v + o.h / 2); p.closePath(); } s.holes.push(p); }
+  function slab(w, h, holes, th) {
+    var s = new T.Shape(); s.moveTo(-w / 2, -h / 2); s.lineTo(w / 2, -h / 2); s.lineTo(w / 2, h / 2); s.lineTo(-w / 2, h / 2); s.closePath();
+    holes.forEach(function (o) { holeShape(s, o); });
+    var geo = new T.ExtrudeGeometry(s, {depth: th, bevelEnabled: false, curveSegments: 28}); geo.translate(0, 0, -th / 2); return geo;
+  }
+  function plate(w, h, holes, th, col, ax, x, y, z) { var m = add(slab(w, h, holes, th), M(col, wh ? .62 : .78, wh ? .2 : .05, {envMapIntensity: wh ? 1 : .3, bumpMap: brushed(), bumpScale: .4}), x, y, z); if (ax === "x") m.rotation.y = Math.PI / 2; else if (ax === "y") m.rotation.x = -Math.PI / 2; return m; }
+  function grille(x, y, z, face, col, sc) {
+    var gp = new T.Group(), mt = M(col, .5, .5);
+    [2.3, 4.1].forEach(function (r) { add(new T.TorusGeometry(r, .13, 6, 40), mt, 0, 0, 0, gp); });
+    for (var i = 0; i < 4; i++) { var b = add(new T.BoxGeometry(10.8, .22, .22), mt, 0, 0, 0, gp); b.rotation.z = i * Math.PI / 4; }
+    gp.scale.set(sc || 1, sc || 1, 1); gp.position.set(x, y, z); if (face === "x") gp.rotation.y = Math.PI / 2; if (face === "y") gp.rotation.x = -Math.PI / 2; g.add(gp);
+  }
+  function fan(r, th, x, y, z, face) {
+    var f = new T.Group(), bl = new T.Group();
+    var fcol = wh ? 0xf1f3f6 : 0x0c0e12;
+    add(slab(2 * r + .8, 2 * r + .8, [{u: 0, v: 0, r: r * .97}], th), M(fcol, .5, .2), 0, 0, 0, f);
+    for (var si = 0; si < 3; si++) { var sb = add(new T.BoxGeometry(2 * r * .97, .5, .3), M(fcol, .5, .2), 0, 0, -th / 2 + .2, f); sb.rotation.z = si * 1.047; }
+    for (var i = 0; i < 9; i++) { var a = i / 9 * 6.283, b = new T.Mesh(new T.BoxGeometry(r * .78, r * .36, .1), M(wh ? 0xe3e6ea : 0x15181d, .45, .2)); b.position.set(Math.cos(a) * r * .54, Math.sin(a) * r * .54, 0); b.rotation.z = a; b.rotateX(.6); b.castShadow = true; bl.add(b); }
+    var hub = new T.Mesh(new T.CylinderGeometry(r * .3, r * .3, th * .9, 24), M(0x090a0d, .4, .4)); hub.rotation.x = Math.PI / 2; bl.add(hub);
+    f.add(bl); spins.push(bl);
+    var ring = new T.Mesh(new T.TorusGeometry(r * .95, .18, 8, 48), LED(x * .02)); ring.position.z = th / 2; f.add(ring);
+    var spr = new T.Sprite(new T.SpriteMaterial({map: glowTex(), color: 0x7c5cff, blending: T.AdditiveBlending, transparent: true, depthWrite: false, opacity: .55})); spr.scale.set(r * 3.4, r * 3.4, 1); spr.position.z = th / 2 + .4; leds.push({m: spr.material, o: x * .02}); f.add(spr);
+    f.position.set(x, y, z); if (face === "x") f.rotation.y = Math.PI / 2; if (face === "y") f.rotation.x = -Math.PI / 2; g.add(f);
+  }
+  function tex(fn, sz, sy) { var c = document.createElement("canvas"); c.width = sz; c.height = sy || sz; fn(c.getContext("2d"), c.width, c.height); return new T.CanvasTexture(c); }
+  function pcb() {
+    return pcbT || (pcbT = tex(function (x, s) {
+      x.fillStyle = "#12261e"; x.fillRect(0, 0, s, s); x.strokeStyle = "rgba(90,170,130,.3)";
+      for (var i = 0; i < 90; i++) { var a = Math.random() * s, b = Math.random() * s; x.beginPath(); x.moveTo(a, b); x.lineTo(a + (Math.random() < .5 ? 0 : (Math.random() - .5) * 90), b + (Math.random() - .5) * 90); x.stroke(); }
+      x.fillStyle = "rgba(220,230,225,.35)"; for (var j = 0; j < 40; j++) x.fillRect(Math.random() * s, Math.random() * s, 6, 2);
+    }, 256));
+  }
+  function brushed() {
+    if (!brT) { brT = tex(function (x, s) { x.fillStyle = "#808080"; x.fillRect(0, 0, s, s); for (var i = 0; i < 1400; i++) { var v = 110 + Math.random() * 60 | 0; x.strokeStyle = "rgb(" + v + "," + v + "," + v + ")"; var y = Math.random() * s, a = Math.random() * s; x.beginPath(); x.moveTo(a, y); x.lineTo(a + 20 + Math.random() * 80, y); x.stroke(); } }, 256); brT.wrapS = brT.wrapT = T.RepeatWrapping; }
+    return brT;
+  }
+  function meshMat(w, h, cc, k, op, pat) {
+    var key = pat || "dots";
+    var t0 = meshTs[key] || (meshTs[key] = tex(function (x, sz) {
+      x.fillStyle = "#fff"; x.fillRect(0, 0, sz, sz); x.fillStyle = "#000";
+      if (key === "dots") { for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++) { x.beginPath(); x.arc(c * 32 + (r % 2 ? 16 : 0) + 8, r * 32 + 16, 9, 0, 6.283); x.fill(); } }
+      else if (key === "bigdots") { for (var r2 = 0; r2 < 4; r2++) for (var c2 = 0; c2 < 4; c2++) { x.beginPath(); x.arc(c2 * 64 + (r2 % 2 ? 32 : 0) + 16, r2 * 64 + 32, 22, 0, 6.283); x.fill(); } }
+      else if (key === "hex") { for (var r3 = 0; r3 < 10; r3++) for (var c3 = 0; c3 < 10; c3++) { var hx = c3 * 28 + (r3 % 2 ? 14 : 0), hy = r3 * 24 + 12; x.beginPath(); for (var q = 0; q < 6; q++) { var an = q * 1.0472 + .5236; x.lineTo(hx + Math.cos(an) * 12.5, hy + Math.sin(an) * 12.5); } x.closePath(); x.fill(); } }
+      else if (key === "slots") { for (var c4 = 0; c4 < 16; c4++) for (var j = 0; j < 4; j++) x.fillRect(c4 * 16 + 5, j * 64 + 8, 6, 48); }
+      else { for (var r5 = 0; r5 < 16; r5++) for (var j2 = 0; j2 < 4; j2++) x.fillRect(j2 * 64 + 8, r5 * 16 + 5, 48, 6); }
+    }, 256));
+    var t2 = t0.clone(); t2.needsUpdate = true; t2.wrapS = t2.wrapT = T.RepeatWrapping; t2.repeat.set(w / (k || 1.3), h / (k || 1.3));
+    return M(cc, .5, .4, {alphaMap: t2, transparent: true, opacity: op || (wh ? .6 : .5), depthWrite: !!op, side: T.DoubleSide});
+  }
+  function glowTex() {
+    return glT || (glT = tex(function (x, s) { var gr = x.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); gr.addColorStop(0, "rgba(255,255,255,.9)"); gr.addColorStop(.35, "rgba(255,255,255,.28)"); gr.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = gr; x.fillRect(0, 0, s, s); }, 128));
+  }
+  function label(txt) {
+    return tex(function (x, a, b) { x.fillStyle = "#0c0e12"; x.fillRect(0, 0, a, b); x.strokeStyle = "#7c5cff"; x.lineWidth = 3; x.strokeRect(2, 2, a - 4, b - 4); x.fillStyle = "#e8ecf6"; x.font = "700 34px sans-serif"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(txt, a / 2, b / 2 + 2); }, 256, 64);
+  }
+  function glassMat(tn) { return new T.MeshStandardMaterial({color: tn ? 0x252a31 : 0x9aa6b0, transparent: true, opacity: tn ? .4 : .07, roughness: .05, metalness: .2, depthWrite: false, side: T.DoubleSide}); }
+  // per-model case designs: size, front style, fan layout
+  function caseStyle(n, m) {
+    var d = {X: m ? 40 : 46, Y: m ? 42 : 47, Z: m ? 19 : 21, front: "mesh", tf: m ? 2 : 3, ff: m ? 2 : 3, fs: 12, strip: false, side: "clear", bw: 1.4};
+    [[/Mini tower/, {X: 34, Y: 36, Z: 16, front: "solid", tf: 0, ff: 0, side: "tint", bw: 3.5}], [/Compact mid/, {X: 38, Y: 40, Z: 18, tf: 0, ff: 2, side: "tint", bw: 2.2, pat: "slots", k: 1.6}], [/Pop Mini/, {X: 40, Y: 38, Z: 19, front: "dots", tf: 2, ff: 2, side: "tint", pat: "bigdots", k: 2.4}], [/Mid tower, air/, {X: 44, Y: 46, Z: 20, tf: 0, ff: 2, side: "mesh", pat: "dots", k: 1.3}],
+     [/Gaming tower/, {X: 46, Y: 49, Z: 22, strip: true, pat: "hex", k: 1.9}], [/H5 Flow/, {X: 46, Y: 46, Z: 21.5, front: "perf", tf: 0, ff: 2, bw: 1.8, pat: "dots", k: .8}], [/H7 Flow/, {X: 49, Y: 50, Z: 23.5, front: "perf", bw: 1.6, pat: "dots", k: 1.1}], [/4000D/, {X: 46, Y: 45, Z: 20.5, front: "perf", tf: 0, ff: 2, bw: 1.2, pat: "hex", k: 1.2}],
+     [/O11/, {X: 46, Y: 44, Z: 28, front: "glass", ff: 0, side: "pano", trim: 0xcfd4dc}], [/Lancool/, {X: 49, Y: 49, Z: 22.5, tf: 3, ff: 2, fs: 16, bw: 1.6, pat: "hex", k: 2.6}], [/Montech/, {X: 48, Y: 46, Z: 22, strip: true, pat: "hex", k: 1}], [/Pure Base/, {X: 45, Y: 46, Z: 22.5, tf: 0, ff: 2, strip: true, side: "tint", pat: "louv", k: 1.6}], [/North/, {X: 44.7, Y: 46, Z: 21.5, front: "slats", tf: 0, ff: 2, side: "mesh", pat: "dots", k: 1.1}]
+    ].forEach(function (e) { if (e[0].test(n)) Object.assign(d, e[1]); });
+    return d;
+  }
+  // Automatic local Sketchfab/GLB library. The catalog contains only models the user has added.
+  var autoModelCatalog = [], autoCatalogReady = false, autoGpuToken = 0;
+  fetch("models.json").then(function (r) { if (!r.ok) throw new Error("models.json niet gevonden"); return r.json(); }).then(function (data) {
+    autoModelCatalog = Array.isArray(data) ? data : (data.models || []); autoCatalogReady = true;
+    if (last && !manualModel) set(last);
+  }).catch(function () { autoCatalogReady = true; });
+  function loadAutoGpu(part, target, token, dims) {
+    if (!part || !T.GLTFLoader || !autoCatalogReady) return;
+    var key = String(part.n || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    var record = autoModelCatalog.find(function (m) {
+      if (!m || m.category !== "gpu" || !m.file) return false;
+      var match = String(m.match || m.name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      return match && (key === match || key.indexOf(match) >= 0 || match.indexOf(key) >= 0);
+    });
+    if (!record) return;
+    var loader = new T.GLTFLoader();
+    loader.load(record.file, function (gltf) {
+      if (token !== autoGpuToken || !target.parent) return;
+      var model = gltf.scene || (gltf.scenes && gltf.scenes[0]); if (!model) return;
+      model.updateMatrixWorld(true);
+      var box = new T.Box3().setFromObject(model), size = box.getSize(new T.Vector3()), center = box.getCenter(new T.Vector3());
+      var maxDim = Math.max(size.x, size.y, size.z); if (!isFinite(maxDim) || maxDim <= 0) return;
+      model.position.sub(center); model.scale.multiplyScalar(dims.length / maxDim);
+      model.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(function (m) { if (m.map) m.map.encoding = T.sRGBEncoding; }); } } });
+      while (target.children.length) { var old = target.children[0]; target.remove(old); old.traverse(function (o) { if (o.geometry) o.geometry.dispose(); }); }
+      model.position.set(dims.x, dims.y, dims.z); target.add(model);
+      status.textContent = "Automatisch model geladen: " + (record.name || part.n); status.hidden = false;
+    }, undefined, function (err) { console.warn("Automatisch GPU-model kon niet laden:", record.file, err); });
+  }
+  function set(S) {
+    last = S; autoGpuToken++;
+    if (manualModel) { if (manualModel.parent !== g) g.add(manualModel); return; }
+    while (g.children.length) { var c = g.children[0]; g.remove(c); c.traverse(function (o) { if (o.geometry) o.geometry.dispose(); }); }
+    spins.length = 0; leds.length = 0;
+    var cpu = S[0], co = S[1], mb = S[2], ram = S[3], gpu = S[4], ssd = S[5], psu = S[6], cs = S[7], any = S.some(Boolean);
+    var cn0 = cs ? cs.n : null; if (cn0 !== lastCn) { lastCn = cn0; if (CASEW !== null) { CASEW = null; syncRGB(); } }
+    wh = CASEW !== null ? CASEW : (cs ? /White/.test(cs.n) : false);
+    hint.textContent = V3T[lang][any ? 0 : 1]; if (!any) return;
+    var m = cs ? cs.ff === "mATX" : (mb ? mb.ff === "mATX" : false), st = caseStyle(cs ? cs.n : "", m), X = st.X, Y = st.Y, Z = st.Z, zt = -Z / 2 + 1.9, aio = co && co.rad > 0;
+    var fl = add(new T.CircleGeometry(85, 64), M(0x0b0c11, .28, .7), 0, -Y / 2 - 1.3, 0); fl.rotation.x = -Math.PI / 2; fl.castShadow = false;
+    var gl = new T.Mesh(new T.CircleGeometry(70, 64), new T.MeshBasicMaterial({color: 0x7c5cff, transparent: true, opacity: .07})); gl.rotation.x = -Math.PI / 2; gl.position.y = -Y / 2 - 1.25; g.add(gl);
+    if (cs) {
+      var cc = wh ? 0xe9edf1 : 0x0d0e11, cm = {roughness: wh ? .62 : .78, metalness: wh ? .2 : .05, envMapIntensity: wh ? 1 : .3, bumpMap: brushed(), bumpScale: .4}, gcol = wh ? 0xdfe3e8 : 0x20242c, xf = X / 2;
+      var fF = st.fs, rF = (fF - .8) / 2, spF = fF + .4, zf = -Z / 2 + 2 + fF / 2, nff = aio ? 0 : st.ff, ntf = st.tf, zc = -Z / 2 + 8, fr = 5.3;
+      P(X, Y, .8, cc, 0, 0, -Z / 2, .3, cm); P(X, .8, Z, cc, 0, -Y / 2, 0, .3, cm);
+      // front panel: depends on the model
+      if (st.front === "glass") { var fg2 = add(new T.PlaneGeometry(Z, Y), glassMat(), xf, 0, 0); fg2.rotation.y = Math.PI / 2; fg2.castShadow = false; fg2.renderOrder = 9; }
+      else if (st.front === "solid") P(.8, Y, Z, cc, xf, 0, 0, .3, cm);
+      else { var fp = add(new T.PlaneGeometry(Z, Y), meshMat(Z, Y, cc, st.k || 1.3, 0, st.pat), xf, 0, 0); fp.rotation.y = Math.PI / 2; fp.castShadow = false; fp.renderOrder = 9; }
+      if (st.front === "slats") for (var sl2 = 0; sl2 < Math.floor((Z - 2) / 1.5); sl2++) P(.9, Y - 2.4, 1, 0x8b5a2b, xf + .45, 0, -Z / 2 + 1.5 + sl2 * 1.5, .2, {roughness: .55, metalness: .05});
+      if (st.strip) add(new T.BoxGeometry(.35, Y - 6, .35), LED(.7), xf - .3, 0, Z / 2 - .9);
+      var tcn = st.trim || cc; P(X, .8, .8, tcn, 0, Y / 2, Z / 2, .2, cm); P(X, .8, .8, tcn, 0, Y / 2, -Z / 2, .2, cm); P(.8, Y, .8, tcn, xf, 0, -Z / 2, .2, cm); P(.8, Y, .8, tcn, -xf, 0, Z / 2, .2, cm); if (st.side !== "pano") P(.8, Y, .8, tcn, xf, 0, Z / 2, .2, cm); P(.8, .8, Z, tcn, xf, Y / 2, 0, .2, cm); P(.8, .8, Z, tcn, xf, -Y / 2, 0, .2, cm);
+      var bn = brandOf(cs.n); if (bn !== "Generic") decal(bn, wh ? "#3b4252" : "#e8ecf6", xf + .06, -Y / 2 + 4, 0, 9, 1.6, Math.PI / 2);
+      var sd = st.side, bwd = st.bw;
+      if (sd === "mesh") { var sp2 = add(new T.PlaneGeometry(X, Y), meshMat(X, Y, cc, st.k || 1.1, 1, st.pat), 0, 0, Z / 2); sp2.castShadow = false; }
+      else {
+        var gz2 = add(new T.PlaneGeometry(X, Y), glassMat(sd === "tint"), 0, 0, Z / 2); gz2.castShadow = false; gz2.renderOrder = 9;
+        if (sd !== "pano") {
+          plate(X, Y, [{u: 0, v: 0, w: X - 2 * bwd, h: Y - 2 * bwd}], .3, wh ? 0x1c1f24 : 0x0b0c0f, "z", 0, 0, Z / 2 + .05);
+          [-1, 1].forEach(function (sx) { [-1, 1].forEach(function (sy) { cyl(.38, .6, M(0x1f2228, .4, .6), sx * (X / 2 - bwd / 2), sy * (Y / 2 - bwd / 2), Z / 2 + .25); }); });
+        }
+      }
+      [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(function (q2) { add(new T.CylinderGeometry(.9, .9, 1.2, 16), M(0x0c0e12, .8, .1), q2[0] * (X / 2 - 4), -Y / 2 - .7, q2[1] * (Z / 2 - 3)); });
+      P(X - .8, 10, Z - 1, wh ? 0xdfe3e8 : 0x14171c, 0, -Y / 2 + 5.4, -.1, .4, {roughness: .6});
+      add(new T.BoxGeometry(X - 2, .25, .3), LED(.1), 0, -Y / 2 + 10.3, Z / 2 - .4);
+      if (psu) add(new T.PlaneGeometry(9, 2.25), new T.MeshBasicMaterial({map: label(psu.w + "W")}), -X / 2 + 10, -Y / 2 + 5.4, Z / 2 - .35);
+      // front fans + vented mounting plate
+      if (nff) {
+        var yc = Y / 2 - 1.5 - fF / 2 - spF * (nff - 1) / 2, hf = [];
+        for (var k = 0; k < nff; k++) { var yk = Y / 2 - 1.5 - fF / 2 - k * spF; fan(rF, 1.4, xf - 2.2, yk, zf, "x"); grille(xf - .45, yk, zf, "x", gcol, rF / 5.6); hf.push({u: 0, v: yk - yc, r: rF - .3}); }
+        plate(fF + 1.6, spF * nff + .8, hf, .6, cc, "x", xf - .9, yc, zf);
+      }
+      // rear exhaust fan + rear plate with PCIe slots
+      fan(5.6, 1.4, -X / 2 + 2.2, Y / 2 - 9, zc, "x");
+      var hr = [{u: -zc, v: Y / 2 - 9, r: fr}]; for (var k5 = 0; k5 < 7; k5++) hr.push({u: 3.5, v: -Y / 2 + 12.4 + k5 * 1.15, w: 3.2, h: .8});
+      plate(Z, Y, hr, .8, cc, "x", -X / 2, 0, 0); grille(-X / 2 - .4, Y / 2 - 9, zc, "x", gcol);
+      // top: fan plate, or a closed top with vent slits
+      if (ntf) {
+        var spT = 12.4, x0 = -X / 2 + 8, xm = x0 + spT * (ntf - 1) / 2, L = spT * ntf + .8, ht = [];
+        for (var k3 = 0; k3 < ntf; k3++) { ht.push({u: -spT * (ntf - 1) / 2 + k3 * spT, v: 0, r: fr}); fan(5.6, 1.4, x0 + k3 * spT, Y / 2 - 2.2, zc, "y"); grille(x0 + k3 * spT, Y / 2 - .5, zc, "y", gcol); }
+        plate(L, 13.6, ht, .6, cc, "y", xm, Y / 2 - .9, zc);
+        var xl = xm - L / 2, xr = xm + L / 2, sg = Z / 2 - (zc + 6.8), bg = zc - 6.8 + Z / 2;
+        P(xl + X / 2, .8, Z, cc, (xl - X / 2) / 2, Y / 2, 0, .3, cm); P(X / 2 - xr, .8, Z, cc, (xr + X / 2) / 2, Y / 2, 0, .3, cm); P(L, .8, sg, cc, xm, Y / 2, zc + 6.8 + sg / 2, .3, cm); P(L, .8, bg, cc, xm, Y / 2, -Z / 2 + bg / 2, .3, cm);
+      } else {
+        var vs = []; for (var k6 = 0; k6 < 9; k6++) vs.push({u: -X / 2 + 8 + k6 * 2.4, v: 0, w: .6, h: Z * .5});
+        plate(X, Z, vs, .8, cc, "y", 0, Y / 2, 0);
+      }
+    } else if (psu) P(15, 8.6, 14, 0x15181d, -X / 2 + 8.5, -Y / 2 + 5, -Z / 2 + 8.2, .8);
+    var bw = 24.4, bh = m ? 24.4 : 30.5, bcx = -X / 2 + 4 + bw / 2, bcy = Y / 2 - 2 - bh / 2, cx = bcx + 1, cy = bcy + bh / 2 - 7;
+    if (mb) {
+      var vx = bcx - bw / 2 + 2.6, vh = bh * .5, sil = wh ? 0xdfe3e8 : 0x2b303a, alu = M(0xaeb4bd, .35, .9);
+      add(new T.BoxGeometry(bw, bh, .3), M(0xffffff, .6, .1, {map: pcb()}), bcx, bcy, -Z / 2 + 1.6);
+      P(5, vh + 1, .8, sil, vx, cy - 2, zt + .5, .4, {metalness: .6});
+      for (var vi = 0; vi < 14; vi++) add(new T.BoxGeometry(4.6, .22, 2.4), alu, vx, cy - 2 - vh / 2 + vi * vh / 13, zt + 1.9);
+      add(new T.BoxGeometry(.3, vh * .8, .3), LED(.4), vx + 2.6, cy - 2, zt + 1.2);
+      P(6.5, 6.5, 1.1, sil, bcx + 7.5, bcy - bh / 2 + 6, zt + .6, .6, {metalness: .6}); decal(mb.n.split(" ")[0], "#d6dbe5", bcx + 7.5, bcy - bh / 2 + 6, zt + 1.18, 5, 1.6);
+      P(12, .9, 1.1, 0x101216, bcx - 2.5, bcy - bh / 2 + 13, zt + .6, .2);
+      for (var q = 0; q < 4; q++) { P(.8, 13.4, 1.6, 0x14161b, cx + 7.5 + q * 1.7, cy, zt + .9, .2); P(.8, .5, .9, 0xd0d0d0, cx + 7.5 + q * 1.7, cy + 7, zt + .6, .1); }
+      for (var sa = 0; sa < 4; sa++) P(2.2, .8, 1, 0x15171c, bcx + bw / 2 - 1.5, bcy - bh / 2 + 9 + sa * 1.1, zt + .5, .1);
+      P(4, 1.3, 1.4, 0x15171c, cx - 3, bcy + bh / 2 - .8, zt + .7, .2);
+      P(2, 5, 1.8, 0xd8d8d8, bcx + bw / 2 - 1.2, bcy + 2, zt + .9, .3, {roughness: .7, metalness: 0});
+      if (psu && cs) {
+        var a0 = new T.Vector3(bcx + bw / 2 + 4, -Y / 2 + 10.4, zt + .6), a1 = new T.Vector3(bcx + bw / 2 + 6, -Y / 2 + 16, zt + 2.4), a2 = new T.Vector3(bcx + bw / 2 + 1, bcy - 4, zt + 2), a3 = new T.Vector3(bcx + bw / 2 - 1.2, bcy + 2, zt + 1.9);
+        add(new T.TubeGeometry(new T.CatmullRomCurve3([a0, a1, a2, a3]), 32, .75, 8, false), M(0x0d0f12, .85, 0), 0, 0, 0);
+      }
+    }
+    if (cpu) {
+      P(4.6, 4.6, .12, 0x2e6b46, cx, cy, zt + .22, .2);
+      P(3.5, 3.5, .35, 0xbfc6d0, cx, cy, zt + .4, .35, {metalness: .95, roughness: .22});
+      decal(sn(cpu.n.replace(/^(Intel Core|AMD)\s*/, ""), 14), "#4b5563", cx, cy, zt + .6, 3.2, .9);
+    }
+    if (co) {
+      if (co.n === null) { P(8, 8, 3, 0x7d848f, cx, cy, zt + 2, .6, {metalness: .8, roughness: .4}); fan(3.4, 1, cx, cy, zt + 3.9, "z"); }
+      else if (!aio) {
+        var fm = M(0xaeb4bd, .35, .9);
+        for (var i = 0; i < 22; i++) add(new T.BoxGeometry(12, 15, .18), fm, cx, cy, zt + 1.6 + i * .33);
+        [-3, -1, 1, 3].forEach(function (o) { var hp = cyl(.3, 15, M(0xc08a52, .3, .9), cx + o, cy, zt + 3); hp.rotation.x = 0; });
+        P(7, 7, 1.1, 0x555b66, cx, cy, zt + .8, .4, {metalness: .8}); fan(5.6, 1.4, cx, cy, zt + 9.6, "z");
+      } else {
+        var ln = co.rad / 10 + 2, ry = Y / 2 - ln / 2 - 1.5, rz = -Z / 2 + 8, rx = X / 2 - 2.6;
+        cyl(3.6, 3, M(wh ? 0xf0f2f5 : 0x1a1d22, .35, .6), cx, cy, zt + 2); cyl(2.9, .3, LED(.5), cx, cy, zt + 3.6); decal(sn(co.n, 8), "#ffffff", cx, cy, zt + 3.78, 4.2, 1.1);
+        P(2.7, ln, 12, wh ? 0xeceff3 : 0x1d2127, rx, ry, rz, .3, {metalness: .6});
+        for (var f = 0; f < co.rad / 120; f++) fan(5.6, 1.4, rx - 2.1, ry - ln / 2 + 7 + 12 * f, rz, "x");
+        [2, 4.5].forEach(function (o, j) {
+          var p0 = new T.Vector3(cx, cy, zt + 3.5 + j * 1.2), p2 = new T.Vector3(rx, ry + ln / 2 - o, rz + j * 1.4 - .7);
+          add(new T.TubeGeometry(new T.CatmullRomCurve3([p0, new T.Vector3((p0.x + p2.x) / 2, (p0.y + p2.y) / 2 + 3, zt + 6), p2]), 28, .5, 8, false), M(wh ? 0xe9edf1 : 0x0e1013, .6, 0), 0, 0, 0);
+        });
+      }
+    }
+    if (ram) for (var s2 = 0; s2 < (ram.gb >= 64 ? 4 : 2); s2++) {
+      var rxp = cx + 7.5 + (ram.gb >= 64 ? s2 : s2 * 2 + 1) * 1.7;
+      P(.9, 13.2, 3.4, (wh || /White/.test(ram.n)) ? 0xe6e8ee : 0x23262d, rxp, cy, zt + 1.8, .3, {metalness: .5, roughness: .35, bumpMap: brushed(), bumpScale: .3});
+      add(new T.BoxGeometry(.5, 12, .5), LED(s2 * .2), rxp, cy, zt + 3.5);
+      decal(ram.gb + "GB " + (ram.m === "D5" ? "DDR5" : "DDR4"), (wh || /White/.test(ram.n)) ? "#3b4252" : "#d8dde6", rxp + .46, cy, zt + 1.8, 11, 2.6, Math.PI / 2);
+    }
+    if (ssd) {
+      P(8, 2.2, .4, 0x2c3447, cx, cy - 9.5, zt + .3, .3, {metalness: .7});
+      P(8.2, 2.4, .7, wh ? 0xdfe3e8 : 0x3a4150, cx, cy - 9.5, zt + .9, .3, {metalness: .8, roughness: .35, bumpMap: brushed(), bumpScale: .3});
+      decal("NVMe", wh ? "#3b4252" : "#e8ecf6", cx, cy - 9.5, zt + 1.27, 4, 1);
+    }
+    if (gpu) {
+      var __mainGroup = g, __gpuGroup = new T.Group(); g = __gpuGroup;
+      var len = Math.min(X - 6, 20 + gpu.w / 14), hh = 11.5, th = gpu.w > 250 ? 5.5 : 3.5, gx = -X / 2 + 3 + len / 2, gy = -Y / 2 + 9.5 + hh / 2 + 1, gz = zt + th / 2 + 1.2, nn = gpu.w > 200 ? 3 : 2, r = Math.min(4.8, len / nn / 2.1);
+      var ac = /^NVIDIA/.test(gpu.n) ? 0x76b900 : /^AMD/.test(gpu.n) ? 0xed1c24 : 0x0071c5, gfx = M(0xaeb4bd, .35, .9), nfin = Math.floor(len * 1.5);
+      for (var fi = 0; fi < nfin; fi++) add(new T.BoxGeometry(.14, hh, th * .86), gfx, gx - len / 2 + 1 + fi * (len - 2) / nfin, gy, gz - .1);
+      P(len, hh - 1.6, th, wh ? 0xeceff3 : 0x16191f, gx, gy, gz, 1, {roughness: .4, metalness: .55, bumpMap: brushed(), bumpScale: .5});
+      P(len - .4, hh - .6, .25, wh ? 0xdde1e6 : 0x20242b, gx, gy, gz - th / 2 - .1, .2, {metalness: .7, bumpMap: brushed(), bumpScale: .4});
+      add(new T.BoxGeometry(len * .92, .35, .3), LED(.3), gx, gy + hh / 2 - .4, gz + th / 2 - .3);
+      add(new T.BoxGeometry(len * .6, .25, .25), new T.MeshStandardMaterial({color: ac, emissive: ac, emissiveIntensity: 1}), gx + len * .15, gy - hh / 2 + .9, gz + th / 2);
+      var slots = []; for (var sl = 0; sl < 6; sl++) slots.push({u: 0, v: -hh / 2 + 1 + sl * 1.7, w: 2.6, h: .7});
+      plate(4.5, hh + 1, slots, .25, 0xb9bec7, "x", gx - len / 2 - .1, gy, gz);
+      P(3.2, 1, 2.4, 0x15171c, gx + len / 2 - 4, gy + hh / 2 + .1, gz, .2); for (var pi = 0; pi < 4; pi++) add(new T.BoxGeometry(.3, .5, .3), M(0xd4af37, .3, 1), gx + len / 2 - 5 + pi * .7, gy + hh / 2 + .7, gz);
+      decal(sn(gpu.n, 18), wh ? "#3b4252" : "#d8dde6", gx + len / 2 - 8, gy - hh / 2 + 2.2, gz + th / 2 + .03, 10, 1.7);
+      for (var i2 = 0; i2 < nn; i2++) { var fx = gx - len / 2 + len * (i2 + .5) / nn; add(new T.TorusGeometry(r * 1.02, .3, 8, 40), M(0x0a0b0e, .5, .3), fx, gy, gz + th / 2 + .15); fan(r, .8, fx, gy, gz + th / 2 + .45, "z"); }
+      g = __mainGroup; __mainGroup.add(__gpuGroup);
+      var __token = ++autoGpuToken; loadAutoGpu(gpu, __gpuGroup, __token, {length: len, x: gx, y: gy, z: gz});
+    }
+  }
+  var api = {set: set, redraw: function () { if (last) set(last); }}; VW.push(api); return api;
+}
+// ===== OWN BUILD: parts can be unselected (-1), so the 3D model grows as you pick =====
+function selS() { var LS = ownLists(); return own.map(function (j, i) { return j >= 0 ? LS[i][j] : null; }); }
+function warnsFor(S) {
+  var t = L[lang], w = [], cpu = S[0], co = S[1], mb = S[2], ram = S[3], gpu = S[4], psu = S[6], cs = S[7];
+  function add(k, a, b) { w.push(t.w[k].replace("{a}", a).replace("{b}", b)); }
+  var ddr = function (x) { return x === "D5" ? "DDR5" : "DDR4"; };
+  if (cpu && mb && mb.sock !== cpu.sock) add(0, cpu.sock, mb.sock);
+  if (ram && mb && mb.m !== ram.m) add(1, ddr(ram.m), ddr(mb.m));
+  if (mb && cs && mb.ff === "ATX" && cs.ff === "mATX") add(2, "", "");
+  if (co && cs && co.rad > cs.rad) add(3, co.rad, cs.rad);
+  if (psu && cpu && gpu) { var need = Math.ceil((cpu.w + gpu.w) * PSU_MARGIN); if (psu.w < need) add(4, psu.w, need); }
+  if (co && cpu && co.n === null && !cpu.box) add(5, "", "");
+  if (gpu && cs && glen(gpu) > CLIM(cs.n).g) add(6, glen(gpu), CLIM(cs.n).g);
+  if (co && cs && CH(co.n) > CLIM(cs.n).c) add(7, CH(co.n), CLIM(cs.n).c);
+  return w;
+}
+function renderCards(S) {
+  var t = L[lang], g = $("ogrid"); g.textContent = "";
+  S.forEach(function (x, i) {
+    var b = mk("button", {type: "button", className: "pcard"});
+    b.setAttribute("aria-pressed", String(i === cur));
+    b.appendChild(mk("span", {className: "pl", textContent: t.parts[i]}));
+    b.appendChild(mk("span", {className: "pn", textContent: x ? (x.n === null ? t.stock : x.n) : "—"}));
+    b.addEventListener("click", function () { cur = i; renderFilters(); renderList(); renderCards(selS()); });
+    g.appendChild(b);
+  });
+}
+function buildOwn() {
+  if (!own) own = [-1, -1, -1, -1, -1, -1, -1, -1];
+  renderFilters(); updOwn(); renderList();
+}
+function updOwn() {
+  var t = L[lang], S = selS(), w = warnsFor(S), any = S.some(Boolean); renderCards(S);
+  var ul = $("owarn"); ul.textContent = "";
+  (w.length ? w : (any ? [t.okc] : [])).forEach(function (m) { var li = document.createElement("li"); li.textContent = m; if (!w.length) li.className = "good"; ul.appendChild(li); });
+  var total = S.reduce(function (s, x) { return s + (x ? x.p : 0); }, 0);
+  $("ototal").textContent = eur(total);
+  var dw = (S[0] ? S[0].w : 0) + (S[4] ? S[4].w : 0) + (any ? 80 : 0), cap = S[6] ? S[6].w : 0, lb = $("oload"); lb.textContent = "";
+  if (any) { lb.appendChild(mk("div", {className: "tg", textContent: LT[lang] + ": ~" + dw + " W" + (cap ? " / " + cap + " W" : "")})); var lm = mk("div", {className: "meter" + (cap && dw > cap * .62 ? " over" : "")}), li = mk("i", {}); li.style.width = Math.min(100, cap ? dw / cap * 100 : 0) + "%"; lm.appendChild(li); lb.appendChild(lm); }
+  otext = t.head + "\n" + S.map(function (x, i) { return x ? t.parts[i] + ": " + (x.n === null ? t.stock : x.n) + " (" + eur(x.p) + ")" : null; }).filter(Boolean).join("\n") + "\n\n" + t.tot + ": " + eur(total) + (w.length ? "\n\n" + w.join("\n") : "");
+  V3O = V3O || Viewer($("v3o")); if (V3O) V3O.set(S);
+}
+(function () {
+  var p = $("v-own"), l = document.createElement("div"), r = document.createElement("div");
+  l.className = "oleft"; r.className = "oright";
+  Array.prototype.slice.call(p.children).forEach(function (c) { if (c.tagName === "H2") return; (c.id === "ogrid" || c.id === "ofilt" || c.id === "olist" ? r : l).appendChild(c); });
+  p.appendChild(l); p.appendChild(r);
+})();
+var SH = {nl: ["Kopieer link", "Link gekopieerd.", "Neem mee naar Zelf samenstellen"], en: ["Copy link", "Link copied.", "Take to Build your own"], de: ["Link kopieren", "Link kopiert.", "In Selbst zusammenstellen übernehmen"], fr: ["Copier le lien", "Lien copié.", "Reprendre dans Composer soi-même"]};
+function shareUrl(tok) { return location.href.split("#")[0] + "#" + tok + "-" + CTRY.toLowerCase(); }
+function showMode(m) { mode = m; $("v-adv").hidden = m !== "adv"; $("v-own").hidden = m !== "own"; renderModes(); }
+[["copy", "ashare", function () { return state ? "pc-a-" + Math.round(state.b) + "-" + state.g + "-" + state.r + "-" + (state.v || "b") : null; }, "copied"], ["ocopy", "oshare", function () { return "pc-o-" + own.map(function (j) { return j < 0 ? "x" : j; }).join("-"); }, "ocopied"]].forEach(function (c) {
+  var btn = mk("button", {type: "button", className: "ghost", id: c[1]}); $(c[0]).parentNode.appendChild(btn);
+  btn.addEventListener("click", function () { var tk = c[2](), out = $(c[3]); if (!tk) return; try { navigator.clipboard.writeText(shareUrl(tk)).then(function () { out.textContent = SH[lang][1]; }, function () { out.textContent = L[lang].copyFail; }); } catch (e) { out.textContent = L[lang].copyFail; } });
+});
+var tb = mk("button", {type: "button", className: "ghost", id: "tobuild"}); $("copy").parentNode.appendChild(tb);
+tb.addEventListener("click", function () { if (!LASTI) return; var LS = ownLists(); own = LASTI.map(function (x, i) { return LS[i].indexOf(x); }); showMode("own"); buildOwn(); });
+var _al2 = applyLang;
+applyLang = function () { _al2(); var t = SH[lang]; $("ashare").textContent = t[0]; $("oshare").textContent = t[0]; $("tobuild").textContent = t[2]; };
+function restoreHash() {
+  var h = (location.hash || "").slice(1).split("-"); if (h[0] !== "pc") return;
+  var c = h[h.length - 1].toUpperCase(); if (CT[c] && c !== CTRY) { CTRY = c; }
+  if (h[1] === "a") {
+    $("budget").value = Math.round(+h[2] * PF()); var g = document.querySelector("input[name=goal][value=\"" + h[3] + "\"]"), r = document.querySelector("input[name=res][value=\"" + h[4] + "\"]"); if (g) g.checked = true; if (r) r.checked = true;
+    applyLang(); $("form").dispatchEvent(new Event("submit", {cancelable: true})); if (h[5] === "intel" || h[5] === "amd") { state.v = h[5]; render(); }
+  } else if (h[1] === "o") {
+    var LS = ownLists(), arr = h.slice(2, 10).map(function (v, i) { var n = v === "x" ? -1 : +v; return n < LS[i].length ? n : -1; }); if (arr.length === 8) { own = arr; applyLang(); showMode("own"); }
+  }
+}
+var sel = $("lang");
+Object.keys(L).forEach(function (k) { var o = document.createElement("option"); o.value = k; o.textContent = L[k].name; sel.appendChild(o); });
+sel.addEventListener("change", function () { lang = sel.value; try { localStorage.setItem("pcb-lang", lang); } catch (e) {} applyLang(); });
+applyLang();
+restoreHash();
+</script>
+</body>
+</html>

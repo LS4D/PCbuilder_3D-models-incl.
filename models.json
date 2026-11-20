@@ -1,0 +1,14 @@
+{
+  "models": [
+    {
+      "category": "gpu",
+      "name": "NVIDIA GeForce RTX 3080",
+      "match": "NVIDIA GeForce RTX 3080",
+      "file": "models/gpu/geforce_rtx_3080_graphics_card.glb",
+      "source": "Sketchfab",
+      "sourceUrl": "",
+      "creator": "",
+      "license": ""
+    }
+  ]
+}
