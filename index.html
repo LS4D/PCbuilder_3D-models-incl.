@@ -517,7 +517,7 @@ function syncRGB() {
 function Viewer(el) {
   var T = window.THREE; if (!T) return null;
   var R; try { R = new T.WebGLRenderer({antialias: true, alpha: true}); } catch (e) { el.textContent = {nl: "3D-weergave niet beschikbaar op dit apparaat", en: "3D view is not available on this device", de: "3D-Ansicht auf diesem Gerät nicht verfügbar", fr: "Vue 3D indisponible sur cet appareil"}[lang]; el.style.display = "grid"; el.style.placeItems = "center"; el.style.color = "var(--muted)"; return null; }
-  var sc = new T.Scene(), cam = new T.PerspectiveCamera(36, 1, 1, 600), g = new T.Group(), yaw = .25, pit = .2, dist = 100, auto = true, w = 0, h = 0, d = null, cv = R.domElement, hint = document.createElement("div"), spins = [], leds = [], pcbT = null, brT = null, meshT = null, meshTs = {}, glT = null, wh = false, last = null, lastCn, tc = new T.Color(), manualModel = null;
+  var sc = new T.Scene(), cam = new T.PerspectiveCamera(36, 1, 1, 600), g = new T.Group(), yaw = .25, pit = .2, dist = 100, auto = true, w = 0, h = 0, d = null, cv = R.domElement, hint = document.createElement("div"), spins = [], leds = [], pcbT = null, brT = null, meshT = null, meshTs = {}, glT = null, wh = false, last = null, lastCn, tc = new T.Color(), manualModel = null, gpuMixer = null, gpuClock = new T.Clock();
   R.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); R.outputEncoding = T.sRGBEncoding; R.toneMapping = T.ACESFilmicToneMapping; R.toneMappingExposure = 1.05;
   R.shadowMap.enabled = true; R.shadowMap.type = T.PCFSoftShadowMap;
   el.appendChild(cv); hint.className = "v3h"; el.appendChild(hint);
@@ -586,6 +586,8 @@ function Viewer(el) {
     requestAnimationFrame(loop); var cw = el.clientWidth, ch = el.clientHeight; if (!cw) return;
     if (cw !== w || ch !== h) { w = cw; h = ch; R.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
     if (auto && !RM) { yaw = Math.sin(Date.now() / 2800) * .85; pit = .38 + .14 * Math.sin(Date.now() / 3700); }
+    var frameDelta = Math.min(gpuClock.getDelta(), .05);
+    if (gpuMixer && !RM) gpuMixer.update(frameDelta);
     var t = Date.now() / 4000;
     spins.forEach(function (s) { s.rotation.z += RM ? 0 : .2; });
     leds.forEach(function (l) { if (RGBS.mode === "rainbow") tc.setHSL((t * 1.5 + l.o) % 1, .9, .55); else tc.set(RGBS.c); l.m.color.copy(tc); if (l.m.emissive) l.m.emissive.copy(tc); });
@@ -694,18 +696,31 @@ function Viewer(el) {
     loader.load(record.file, function (gltf) {
       if (token !== autoGpuToken || !target.parent) return;
       var model = gltf.scene || (gltf.scenes && gltf.scenes[0]); if (!model) return;
+      // Dit Sketchfab-model is langs de Y-as gebouwd; draai het zodat de lengte langs X loopt.
+      model.rotation.z = -Math.PI / 2;
       model.updateMatrixWorld(true);
       var box = new T.Box3().setFromObject(model), size = box.getSize(new T.Vector3()), center = box.getCenter(new T.Vector3());
       var maxDim = Math.max(size.x, size.y, size.z); if (!isFinite(maxDim) || maxDim <= 0) return;
-      model.position.sub(center); model.scale.multiplyScalar(dims.length / maxDim);
+      var fitScale = dims.length / maxDim;
+      model.scale.multiplyScalar(fitScale);
+      // Centreer het model op de GPU-positie; overschrijf de middelpuntcorrectie niet.
+      model.position.set(dims.x - center.x * fitScale, dims.y - center.y * fitScale, dims.z - center.z * fitScale);
       model.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(function (m) { if (m.map) m.map.encoding = T.sRGBEncoding; }); } } });
       while (target.children.length) { var old = target.children[0]; target.remove(old); old.traverse(function (o) { if (o.geometry) o.geometry.dispose(); }); }
-      model.position.set(dims.x, dims.y, dims.z); target.add(model);
-      status.textContent = "Automatisch model geladen: " + (record.name || part.n); status.hidden = false;
+      target.add(model);
+      // Speel de ingebouwde Sketchfab-fananimatie af (1500 RPM).
+      gpuMixer = null;
+      if (gltf.animations && gltf.animations.length) {
+        gpuMixer = new T.AnimationMixer(model);
+        var fanClip = gltf.animations.find(function (clip) { return /fan_1500rpm/i.test(clip.name || ""); }) || gltf.animations.find(function (clip) { return /fan_1200rpm/i.test(clip.name || ""); });
+        if (fanClip) gpuMixer.clipAction(fanClip).play();
+        else gpuMixer = null;
+      }
+      status.textContent = "Automatisch model geladen: " + (record.name || part.n) + (gpuMixer ? " — fans draaien" : " — geen fananimatie gevonden"); status.hidden = false;
     }, undefined, function (err) { console.warn("Automatisch GPU-model kon niet laden:", record.file, err); });
   }
   function set(S) {
-    last = S; autoGpuToken++;
+    last = S; autoGpuToken++; gpuMixer = null;
     if (manualModel) { if (manualModel.parent !== g) g.add(manualModel); return; }
     while (g.children.length) { var c = g.children[0]; g.remove(c); c.traverse(function (o) { if (o.geometry) o.geometry.dispose(); }); }
     spins.length = 0; leds.length = 0;
