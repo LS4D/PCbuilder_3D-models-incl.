@@ -405,6 +405,7 @@ CPUY.forEach(function (r) {
   var sc = Math.round(r[3] * a[0] * Math.sqrt(eff) * a[2] * (/X3D/.test(n) ? 1.2 : 1) * 5.15), w = intel && isK ? (c >= 16 ? 250 : c >= 12 ? 190 : r[5]) : r[5];
   if (CPUX.every(function (x) { return x[0] !== n; }) && CPUS.every(function (x) { return x.n !== n; })) CPUX.push([n, Math.round(r[1] / 1.1405 * 1.21), sc, a[1], w, (r[5] <= 65 && !/X3D|\dX\b|XT|\d{3,5}K|Plus/.test(n)) ? 1 : 0]);
 });
+BRDX.push(["ASUS ROG STRIX X370-F GAMING", 129, "AM4", "D4", "ATX"]);
 BRDX.push(["ASRock B860M Pro RS WiFi", 150, "LGA1851", "D5", "mATX"], ["MSI MAG B860 TOMAHAWK WIFI", 210, "LGA1851", "D5", "ATX"], ["Gigabyte Z890 AORUS ELITE WIFI7", 330, "LGA1851", "D5", "ATX"], ["ASUS ROG STRIX Z890-E GAMING WIFI", 480, "LGA1851", "D5", "ATX"]);
 function X(a, k) { return a.map(function (r) { var o = {}; k.forEach(function (key, i) { o[key] = r[i]; }); return o; }); }
 [[CPUS, CPUX, ["n", "p", "s", "sock", "w", "box"]], [GPUS, GPUX, ["n", "p", "s", "w", "v"]], [BOARDS, BRDX, ["n", "p", "sock", "m", "ff"]], [RAMS, RAMX, ["n", "p", "m", "gb"]], [COOLERS, COLX, ["n", "p", "rad"]], [SSDS, SSDX, ["n", "p"]], [PSUS, PSUX, ["n", "p", "w"]], [CASES, CASEX, ["n", "p", "ff", "rad"]]].forEach(function (e) { e[0].push.apply(e[0], X(e[1], e[2])); });
@@ -678,7 +679,7 @@ function Viewer(el) {
     return d;
   }
   // Automatic local Sketchfab/GLB library. The catalog contains only models the user has added.
-  var autoModelCatalog = [], autoCatalogReady = false, autoGpuToken = 0;
+  var autoModelCatalog = [], autoCatalogReady = false, autoGpuToken = 0, autoBoardToken = 0;
   fetch("models.json").then(function (r) { if (!r.ok) throw new Error("models.json niet gevonden"); return r.json(); }).then(function (data) {
     autoModelCatalog = Array.isArray(data) ? data : (data.models || []); autoCatalogReady = true;
     if (last && !manualModel) set(last);
@@ -698,13 +699,24 @@ function Viewer(el) {
       var model = gltf.scene || (gltf.scenes && gltf.scenes[0]); if (!model) return;
       // Dit Sketchfab-model is langs de Y-as gebouwd; draai het zodat de lengte langs X loopt.
       model.rotation.z = -Math.PI / 2;
+      if (dims.slot) {
+        // in a PCIe slot the card lies flat: length along X, the tall side towards the glass (Z), the thickness along Y
+        if (record.flip) model.rotation.x += Math.PI;
+        model.updateMatrixWorld(true);
+        var __b0 = new T.Box3().setFromObject(model), __s0 = __b0.getSize(new T.Vector3());
+        if (__s0.y > __s0.z) model.rotation.x += Math.PI / 2;
+      }
       model.updateMatrixWorld(true);
       var box = new T.Box3().setFromObject(model), size = box.getSize(new T.Vector3()), center = box.getCenter(new T.Vector3());
       var maxDim = Math.max(size.x, size.y, size.z); if (!isFinite(maxDim) || maxDim <= 0) return;
       var fitScale = dims.length / maxDim;
       model.scale.multiplyScalar(fitScale);
       // Centreer het model op de GPU-positie; overschrijf de middelpuntcorrectie niet.
-      model.position.set(dims.x - center.x * fitScale, dims.y - center.y * fitScale, dims.z - center.z * fitScale);
+      if (dims.slot) {
+        model.updateMatrixWorld(true);
+        var __b2 = new T.Box3().setFromObject(model);
+        model.position.set(dims.slot.left - __b2.min.x, dims.slot.top - __b2.max.y, dims.slot.zmin - __b2.min.z);
+      } else model.position.set(dims.x - center.x * fitScale, dims.y - center.y * fitScale, dims.z - center.z * fitScale);
       model.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(function (m) { if (m.map) m.map.encoding = T.sRGBEncoding; }); } } });
       while (target.children.length) { var old = target.children[0]; target.remove(old); old.traverse(function (o) { if (o.geometry) o.geometry.dispose(); }); }
       target.add(model);
@@ -719,8 +731,37 @@ function Viewer(el) {
       status.textContent = "Automatisch model geladen: " + (record.name || part.n) + (gpuMixer ? " — fans draaien" : " — geen fananimatie gevonden"); status.hidden = false;
     }, undefined, function (err) { console.warn("Automatisch GPU-model kon niet laden:", record.file, err); });
   }
+  function findModel(cat, part) {
+    if (!part || !autoCatalogReady) return null;
+    var key = String(part.n || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    return autoModelCatalog.find(function (m) {
+      if (!m || m.category !== cat || !m.file) return false;
+      var match = String(m.match || m.name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      return match && (key === match || key.indexOf(match) >= 0 || match.indexOf(key) >= 0);
+    }) || null;
+  }
+  // ASUS ROG STRIX X370-F GAMING (glb): model-space coordinates of the parts that matter (units of the model)
+  var X370 = {x0: 202.825, y0: .73, h: 26.28, sock: [204.335, 5.445], dimmX: [208.9, 209.7, 210.5, 211.3], dimmY: 5.67, dimmLen: 12.92, slotY: -1.985, slotX0: 195.62, m2: [206.8, -9.09]};
+  function boardLayout(bcx, bcy, bh, zpcb) {
+    var k = bh / X370.h, px = function (mx) { return bcx + (mx - X370.x0) * k; }, py = function (my) { return bcy + (my - X370.y0) * k; };
+    return {s: k, bcx: bcx, bcy: bcy, zpcb: zpcb, sx: px(X370.sock[0]), sy: py(X370.sock[1]), dimm: X370.dimmX.map(px), dimmCy: py(X370.dimmY), dimmLen: X370.dimmLen * k, slotY: py(X370.slotY), slotLeft: px(X370.slotX0), ssdX: px(X370.m2[0]), ssdY: py(X370.m2[1])};
+  }
+  function loadAutoBoard(part, rec, target, token, L) {
+    if (!T.GLTFLoader) return;
+    new T.GLTFLoader().load(rec.file, function (gltf) {
+      if (token !== autoBoardToken || !target.parent) return;
+      var model = gltf.scene || (gltf.scenes && gltf.scenes[0]); if (!model) return;
+      // the model stands upright (PCB in the XY plane, parts facing +Z): only scale and move it onto the case's board position
+      model.scale.setScalar(L.s);
+      model.position.set(L.bcx - X370.x0 * L.s, L.bcy - X370.y0 * L.s, L.zpcb + 21.03 * L.s);
+      model.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; (Array.isArray(o.material) ? o.material : [o.material]).forEach(function (m) { if (!m) return; if (m.map) m.map.encoding = T.sRGBEncoding; if (m.emissiveMap) m.emissiveMap.encoding = T.sRGBEncoding; m.envMapIntensity = 1; }); } });
+      while (target.children.length) { var old = target.children[0]; target.remove(old); old.traverse(function (o) { if (o.geometry) o.geometry.dispose(); }); }
+      target.add(model);
+      status.textContent = "Moederbordmodel geladen: " + (rec.name || part.n) + (rec.credit ? " \u2014 " + rec.credit : ""); status.hidden = false;
+    }, undefined, function (err) { console.warn("Moederbordmodel kon niet laden:", rec.file, err); status.textContent = "Moederbordmodel kon niet laden (" + rec.file + ") \u2014 het eenvoudige bord blijft zichtbaar."; status.hidden = false; });
+  }
   function set(S) {
-    last = S; autoGpuToken++; gpuMixer = null;
+    last = S; autoGpuToken++; autoBoardToken++; gpuMixer = null;
     if (manualModel) { if (manualModel.parent !== g) g.add(manualModel); return; }
     while (g.children.length) { var c = g.children[0]; g.remove(c); c.traverse(function (o) { if (o.geometry) o.geometry.dispose(); }); }
     spins.length = 0; leds.length = 0;
@@ -779,7 +820,12 @@ function Viewer(el) {
       }
     } else if (psu) P(15, 8.6, 14, 0x15181d, -X / 2 + 8.5, -Y / 2 + 5, -Z / 2 + 8.2, .8);
     var bw = 24.4, bh = m ? 24.4 : 30.5, bcx = -X / 2 + 4 + bw / 2, bcy = Y / 2 - 2 - bh / 2, cx = bcx + 1, cy = bcy + bh / 2 - 7;
-    if (mb) {
+    var BLrec = (mb && !m) ? findModel("motherboard", mb) : null, BL = BLrec ? boardLayout(bcx, bcy, bh, -Z / 2 + 1.6) : null; if (BL) { cx = BL.sx; cy = BL.sy; }
+    if (mb && BL) {
+      var __mbG = new T.Group(); g.add(__mbG);
+      add(new T.BoxGeometry(bw, bh, .3), M(0x14231c, .6, .1, {map: pcb()}), bcx, bcy, BL.zpcb, __mbG);
+      loadAutoBoard(mb, BLrec, __mbG, ++autoBoardToken, BL);
+    } else if (mb) {
       var vx = bcx - bw / 2 + 2.6, vh = bh * .5, sil = wh ? 0xdfe3e8 : 0x2b303a, alu = M(0xaeb4bd, .35, .9);
       add(new T.BoxGeometry(bw, bh, .3), M(0xffffff, .6, .1, {map: pcb()}), bcx, bcy, -Z / 2 + 1.6);
       P(5, vh + 1, .8, sil, vx, cy - 2, zt + .5, .4, {metalness: .6});
@@ -820,19 +866,21 @@ function Viewer(el) {
       }
     }
     if (ram) for (var s2 = 0; s2 < (ram.gb >= 64 ? 4 : 2); s2++) {
-      var rxp = cx + 7.5 + (ram.gb >= 64 ? s2 : s2 * 2 + 1) * 1.7;
-      P(.9, 13.2, 3.4, (wh || /White/.test(ram.n)) ? 0xe6e8ee : 0x23262d, rxp, cy, zt + 1.8, .3, {metalness: .5, roughness: .35, bumpMap: brushed(), bumpScale: .3});
-      add(new T.BoxGeometry(.5, 12, .5), LED(s2 * .2), rxp, cy, zt + 3.5);
-      decal(ram.gb + "GB " + (ram.m === "D5" ? "DDR5" : "DDR4"), (wh || /White/.test(ram.n)) ? "#3b4252" : "#d8dde6", rxp + .46, cy, zt + 1.8, 11, 2.6, Math.PI / 2);
+      var rxp = BL ? BL.dimm[(ram.gb >= 64 ? s2 : s2 * 2 + 1)] : cx + 7.5 + (ram.gb >= 64 ? s2 : s2 * 2 + 1) * 1.7, ry = BL ? BL.dimmCy : cy, rlen = BL ? BL.dimmLen * .93 : 13.2;
+      P(.9, rlen, 3.4, (wh || /White/.test(ram.n)) ? 0xe6e8ee : 0x23262d, rxp, ry, zt + 1.8, .3, {metalness: .5, roughness: .35, bumpMap: brushed(), bumpScale: .3});
+      add(new T.BoxGeometry(.5, rlen - 1.2, .5), LED(s2 * .2), rxp, ry, zt + 3.5);
+      decal(ram.gb + "GB " + (ram.m === "D5" ? "DDR5" : "DDR4"), (wh || /White/.test(ram.n)) ? "#3b4252" : "#d8dde6", rxp + .46, ry, zt + 1.8, 11, 2.6, Math.PI / 2);
     }
     if (ssd) {
-      P(8, 2.2, .4, 0x2c3447, cx, cy - 9.5, zt + .3, .3, {metalness: .7});
-      P(8.2, 2.4, .7, wh ? 0xdfe3e8 : 0x3a4150, cx, cy - 9.5, zt + .9, .3, {metalness: .8, roughness: .35, bumpMap: brushed(), bumpScale: .3});
-      decal("NVMe", wh ? "#3b4252" : "#e8ecf6", cx, cy - 9.5, zt + 1.27, 4, 1);
+      var sx2 = BL ? BL.ssdX : cx, sy2 = BL ? BL.ssdY : cy - 9.5;
+      P(8, 2.2, .4, 0x2c3447, sx2, sy2, zt + .3, .3, {metalness: .7});
+      P(8.2, 2.4, .7, wh ? 0xdfe3e8 : 0x3a4150, sx2, sy2, zt + .9, .3, {metalness: .8, roughness: .35, bumpMap: brushed(), bumpScale: .3});
+      decal("NVMe", wh ? "#3b4252" : "#e8ecf6", sx2, sy2, zt + 1.27, 4, 1);
     }
     if (gpu) {
       var __mainGroup = g, __gpuGroup = new T.Group(); g = __gpuGroup;
       var len = Math.min(X - 6, 20 + gpu.w / 14), hh = 11.5, th = gpu.w > 250 ? 5.5 : 3.5, gx = -X / 2 + 3 + len / 2, gy = -Y / 2 + 9.5 + hh / 2 + 1, gz = zt + th / 2 + 1.2, nn = gpu.w > 200 ? 3 : 2, r = Math.min(4.8, len / nn / 2.1);
+      if (BL) { len = Math.min(len, X / 2 - 3.5 - (BL.slotLeft - 1)); gx = BL.slotLeft - 1 + len / 2; gy = BL.slotY + .5 - hh / 2; r = Math.min(4.8, len / nn / 2.1); }
       var ac = /^NVIDIA/.test(gpu.n) ? 0x76b900 : /^AMD/.test(gpu.n) ? 0xed1c24 : 0x0071c5, gfx = M(0xaeb4bd, .35, .9), nfin = Math.floor(len * 1.5);
       for (var fi = 0; fi < nfin; fi++) add(new T.BoxGeometry(.14, hh, th * .86), gfx, gx - len / 2 + 1 + fi * (len - 2) / nfin, gy, gz - .1);
       P(len, hh - 1.6, th, wh ? 0xeceff3 : 0x16191f, gx, gy, gz, 1, {roughness: .4, metalness: .55, bumpMap: brushed(), bumpScale: .5});
@@ -845,7 +893,7 @@ function Viewer(el) {
       decal(sn(gpu.n, 18), wh ? "#3b4252" : "#d8dde6", gx + len / 2 - 8, gy - hh / 2 + 2.2, gz + th / 2 + .03, 10, 1.7);
       for (var i2 = 0; i2 < nn; i2++) { var fx = gx - len / 2 + len * (i2 + .5) / nn; add(new T.TorusGeometry(r * 1.02, .3, 8, 40), M(0x0a0b0e, .5, .3), fx, gy, gz + th / 2 + .15); fan(r, .8, fx, gy, gz + th / 2 + .45, "z"); }
       g = __mainGroup; __mainGroup.add(__gpuGroup);
-      var __token = ++autoGpuToken; loadAutoGpu(gpu, __gpuGroup, __token, {length: len, x: gx, y: gy, z: gz});
+      var __token = ++autoGpuToken; loadAutoGpu(gpu, __gpuGroup, __token, {length: len, x: gx, y: gy, z: gz, slot: BL ? {left: BL.slotLeft - 1, top: BL.slotY + .5, zmin: BL.zpcb + .65} : null});
     }
   }
   var api = {set: set, redraw: function () { if (last) set(last); }}; VW.push(api); return api;
